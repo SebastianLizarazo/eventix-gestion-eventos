@@ -1,0 +1,53 @@
+/**
+ * Errores tipados del dominio.
+ *
+ * La capa de aplicación lanza estas excepciones; el middleware de errores de la
+ * capa HTTP las traduce a un formato único. Cada error lleva un `codigo` estable
+ * para que el contrato de error no dependa del texto del mensaje.
+ */
+
+/** Error base del dominio. */
+export class ErrorDominio extends Error {
+  readonly codigo: string;
+
+  constructor(codigo: string, mensaje: string) {
+    super(mensaje);
+    this.name = new.target.name;
+    this.codigo = codigo;
+  }
+}
+
+/** Detalle de un campo que incumplió una regla de validación. */
+export type CampoError = {
+  /** Ruta del campo dentro del documento (ej. `tipos_ticket.0.aforo_vendido`). */
+  campo: string;
+  /** Mensaje legible de la regla incumplida. */
+  mensaje: string;
+  /** Código de la regla (mismo vocabulario que Zod). */
+  codigo?: string;
+};
+
+/** Fallo de validación de esquema o de regla de negocio, con detalle por campo. */
+export class ErrorValidacion extends ErrorDominio {
+  readonly campos: CampoError[];
+
+  constructor(campos: CampoError[], mensaje = "La validación falló") {
+    super("VALIDACION", mensaje);
+    this.campos = campos;
+  }
+
+  /** Devuelve el primer error asociado a un campo, si existe. */
+  campo(nombre: string): CampoError | undefined {
+    return this.campos.find((campo) => campo.campo === nombre);
+  }
+}
+
+/** Valor que no puede convertirse a un ObjectId de MongoDB. */
+export class ErrorIdInvalido extends ErrorDominio {
+  readonly valor: string;
+
+  constructor(valor: string, tipo = "ObjectId") {
+    super("ID_INVALIDO", `Valor inválido para ${tipo}: ${valor}`);
+    this.valor = valor;
+  }
+}
