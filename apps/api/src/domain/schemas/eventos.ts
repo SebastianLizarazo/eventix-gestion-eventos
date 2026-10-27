@@ -62,7 +62,8 @@ export const promocionSchema = z
       .trim()
       .min(1)
       .max(64)
-      .regex(/^[A-Z0-9_-]+$/, "El código debe ir en mayúsculas y sin espacios"),
+      .regex(/^[A-Za-z0-9_-]+$/, "El código solo admite letras, dígitos, guiones y guiones bajos")
+      .transform((valor) => valor.toUpperCase()),
     tipo: z.enum(TIPO_PROMOCION),
     valor: z.number().int().positive(),
     aplica_a_tipo_ticket_ids: z.array(objectIdSchema).default([]),
@@ -189,32 +190,12 @@ const eventoBaseSchema = z.object({
   visibilidad: z.enum(VISIBILIDAD_EVENTO).default("publico"),
   organizador_id: objectIdSchema,
   lugar_id: objectIdSchema,
-  categorias: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1)
-        .max(60)
-        .regex(/^[a-z0-9_-]+$/, "Categoría inválida"),
-    )
-    .max(5, "Máximo 5 categorías")
-    .default([]),
+  categorias: z.array(z.string().trim().min(1).max(60)).max(5, "Máximo 5 categorías").default([]),
   configuracion_evento: configuracionEventoSchema.default({}),
-  tipos_ticket: z.array(tipoTicketSchema).max(20, "Máximo 20 tipos de ticket").default([]),
+  tipos_ticket: z.array(tipoTicketSchema).max(10, "Máximo 10 tipos de ticket").default([]),
   promociones: z.array(promocionSchema).max(10, "Máximo 10 promociones embebidas").default([]),
   metricas_evento: metricasEventoSchema.optional(),
-  tags: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1)
-        .max(40)
-        .regex(/^[a-z0-9_-]+$/, "Tag inválido"),
-    )
-    .max(20, "Máximo 20 tags")
-    .default([]),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20, "Máximo 20 tags").default([]),
 });
 
 type EventoBase = z.output<typeof eventoBaseSchema>;

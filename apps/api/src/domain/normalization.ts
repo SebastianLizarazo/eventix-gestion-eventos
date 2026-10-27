@@ -1,9 +1,14 @@
 /**
  * Normalización de valores derivados.
  *
- * Estas funciones son la única fuente de verdad de `email_normalizado` y `slug`:
- * los esquemas de dominio validan que el valor almacenado sea coherente con la
- * regla, y los documentos de ejemplo del documento 04 §3 pasan esa validación.
+ * `email_normalizado` es un valor **derivado y cerrado**: el esquema de
+ * `usuarios` valida que el valor persistido sea exactamente el que produce esta
+ * función, porque es la clave del índice unique.
+ *
+ * `slug` es un valor **derivado por defecto** pero no cerrado: si el evento
+ * trae un slug explícito se respeta (una URL comercial puede no derivar del
+ * nombre), y el esquema solo valida su formato. La unicidad la garantiza el
+ * índice, no el documento.
  */
 
 /**

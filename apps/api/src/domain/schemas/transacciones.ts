@@ -34,7 +34,7 @@ export const transaccionSchema = z.object({
     .trim()
     .min(1)
     .max(64)
-    .regex(/^[A-Za-z0-9_-]+$/, "Nombre de pasarela inválido"),
+    .regex(/^[A-Za-z0-9._-]+$/, "Nombre de pasarela inválido"),
   estado: z.enum(ESTADO_TRANSACCION).default("pendiente"),
   referencia_pasarela: z.string().trim().min(1).max(128),
   creada_en: dateSchema,

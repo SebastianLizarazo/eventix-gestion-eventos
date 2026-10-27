@@ -30,16 +30,11 @@ export const usuarioInputSchema = z.object({
   telefono: z
     .string()
     .trim()
-    .min(7)
+    .min(5)
     .max(32)
-    .regex(/^\+?[\d\s-]+$/, "Formato de teléfono inválido")
+    .regex(/\d/, "El teléfono debe incluir al menos un dígito")
     .optional(),
-  documento_identidad: z
-    .string()
-    .trim()
-    .min(3)
-    .max(32)
-    .regex(/^[\w-]+$/, "Formato de documento de identidad inválido"),
+  documento_identidad: z.string().trim().min(3).max(32),
   tipo_usuario: z
     .array(tipoUsuarioSchema)
     .min(1, "El usuario debe tener al menos un tipo")

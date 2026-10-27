@@ -44,7 +44,7 @@ describe("esObjectIdValido", () => {
   });
 
   it("rechaza un valor que no es hexadecimal de 24 caracteres", () => {
-    expect(esObjectIdValido("66a8zz00000000000000001")).toBe(false);
+    expect(esObjectIdValido("66a8zz000000000000000001")).toBe(false);
   });
 
   it("rechaza valores que no son cadenas", () => {

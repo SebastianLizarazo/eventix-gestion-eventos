@@ -26,7 +26,7 @@ export const auditoriaSchema = z.object({
     .trim()
     .min(3)
     .max(128)
-    .regex(/^[a-z0-9_.]+$/, "La acción debe ir en minúsculas y con notación de dominio"),
+    .regex(/^[a-z0-9_.-]+$/, "La acción debe ir en minúsculas y con notación de dominio"),
   sujeto_tipo: z.enum(TIPO_SUJETO),
   sujeto_id: objectIdSchema,
   metadata: z.record(z.string(), z.unknown()).default({}),

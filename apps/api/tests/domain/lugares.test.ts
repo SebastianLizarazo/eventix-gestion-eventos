@@ -76,4 +76,10 @@ describe("lugarSchema", () => {
 
     expect(lugarSchema.safeParse({ ...LUGAR_VALIDO, salas }).success).toBe(false);
   });
+
+  it("acepta un tipo de sala libre", () => {
+    const salas = [{ nombre: "Sala A", capacidad: 100, tipo: "preferencial" }];
+
+    expect(lugarSchema.safeParse({ ...LUGAR_VALIDO, salas }).success).toBe(true);
+  });
 });

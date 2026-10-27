@@ -62,4 +62,10 @@ describe("auditoriaSchema", () => {
   it("rechaza un actor_id que no es un ObjectId", () => {
     expect(auditoriaSchema.safeParse({ ...AUDITORIA_VALIDA, actor_id: "abc" }).success).toBe(false);
   });
+
+  it("acepta una acción con guiones", () => {
+    expect(
+      auditoriaSchema.safeParse({ ...AUDITORIA_VALIDA, accion: "ticket.re-emitido" }).success,
+    ).toBe(true);
+  });
 });

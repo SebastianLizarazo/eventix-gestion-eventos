@@ -6,6 +6,7 @@
  */
 export * from "./errors.js";
 export * from "./error-map.js";
+export * from "./fechas.js";
 export * from "./ids.js";
 export * from "./normalization.js";
 export * from "./validar.js";

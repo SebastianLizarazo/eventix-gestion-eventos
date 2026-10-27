@@ -59,4 +59,10 @@ describe("transaccionSchema", () => {
       transaccionSchema.safeParse({ ...TRANSACCION_VALIDA, referencia_pasarela: "" }).success,
     ).toBe(false);
   });
+
+  it("acepta un nombre de pasarela con punto", () => {
+    expect(
+      transaccionSchema.safeParse({ ...TRANSACCION_VALIDA, pasarela: "wompi.co" }).success,
+    ).toBe(true);
+  });
 });

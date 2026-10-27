@@ -3,8 +3,6 @@ import { dateSchema, objectIdSchema } from "./common.js";
 
 /** Esquema de `lugares` (documento 04 §3.2). */
 
-export const TIPO_SALA = ["fisico", "virtual"] as const;
-
 /** Geometría GeoJSON. Las coordenadas van en orden [longitud, latitud]. */
 export const geometriaSchema = z.object({
   type: z.literal("Point"),
@@ -18,7 +16,7 @@ export const salaSchema = z.object({
   nombre: z.string().trim().min(1).max(120),
   capacidad: z.number().int().nonnegative(),
   piso: z.number().int().nonnegative().optional(),
-  tipo: z.enum(TIPO_SALA).optional(),
+  tipo: z.string().trim().min(1).max(40).optional(),
 });
 
 export const lugarInputSchema = z.object({

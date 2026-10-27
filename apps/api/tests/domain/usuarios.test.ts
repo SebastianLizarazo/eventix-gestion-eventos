@@ -91,6 +91,21 @@ describe("usuarioSchema", () => {
       false,
     );
   });
+
+  it("acepta un teléfono en formato local o internacional", () => {
+    expect(usuarioSchema.safeParse({ ...USUARIO_VALIDO, telefono: "3115551234" }).success).toBe(
+      true,
+    );
+    expect(
+      usuarioSchema.safeParse({ ...USUARIO_VALIDO, telefono: "+57 311 555 1234" }).success,
+    ).toBe(true);
+  });
+
+  it("rechaza un teléfono sin dígitos", () => {
+    expect(usuarioSchema.safeParse({ ...USUARIO_VALIDO, telefono: "sin numero" }).success).toBe(
+      false,
+    );
+  });
 });
 
 describe("prepararUsuario", () => {

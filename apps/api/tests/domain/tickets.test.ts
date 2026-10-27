@@ -37,10 +37,13 @@ describe("ticketSchema", () => {
     expect(ticket.snapshot_tipo_ticket.precio_cop).toBe(120000);
   });
 
-  it("rechaza un código QR con minúsculas o símbolos no permitidos", () => {
-    expect(
-      ticketSchema.safeParse({ ...TICKET_VALIDO, codigo_qr: "qr-rk25-ab12cd34" }).success,
-    ).toBe(false);
+  it("acepta un código QR en minúsculas y lo normaliza a mayúsculas", () => {
+    const ticket = ticketSchema.parse({ ...TICKET_VALIDO, codigo_qr: "qr-rk25-ab12cd34" });
+
+    expect(ticket.codigo_qr).toBe("QR-RK25-AB12CD34");
+  });
+
+  it("rechaza un código QR con símbolos no permitidos", () => {
     expect(ticketSchema.safeParse({ ...TICKET_VALIDO, codigo_qr: "QR RK25" }).success).toBe(false);
   });
 

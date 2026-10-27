@@ -1,16 +1,30 @@
+import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { parsearFechaIso } from "../fechas.js";
 import { PATRON_OBJECT_ID } from "../ids.js";
 
 /** Piezas compartidas por los esquemas de las seis colecciones. */
 
-/** Identificador del dominio: hexadecimal de 24 caracteres (forma de un ObjectId). */
+/**
+ * Identificador del dominio: hexadecimal de 24 caracteres (forma de un ObjectId).
+ *
+ * Acepta también el `ObjectId` nativo de MongoDB y lo normaliza a hexadecimal:
+ * es el punto único de conversión cuando la capa de persistencia lee un
+ * documento real y la capa de dominio trabaja siempre con cadenas.
+ */
 export const objectIdSchema = z
-  .string()
-  .regex(PATRON_OBJECT_ID, "Debe ser un identificador hexadecimal de 24 caracteres");
+  .union([
+    z.string().regex(PATRON_OBJECT_ID, "Debe ser un identificador hexadecimal de 24 caracteres"),
+    z.instanceof(ObjectId),
+  ])
+  .transform((valor) => (typeof valor === "string" ? valor.toLowerCase() : valor.toHexString()));
 
-/** Fecha ISO 8601 (o Date nativo) normalizada a `Date`. */
-const PATRON_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/;
-
+/**
+ * Fecha ISO 8601 (o `Date` nativo) normalizada a `Date`.
+ *
+ * Las fechas sin zona se interpretan como UTC y las fechas de calendario
+ * inexistentes ("2025-02-30") se rechazan en lugar de desplazarse solas.
+ */
 export const dateSchema = z.preprocess(
   (valor) => {
     if (valor instanceof Date) {
@@ -19,12 +33,7 @@ export const dateSchema = z.preprocess(
     if (typeof valor !== "string") {
       return valor;
     }
-    const texto = valor.trim();
-    if (!PATRON_ISO.test(texto)) {
-      return valor;
-    }
-    const fecha = new Date(texto);
-    return Number.isNaN(fecha.getTime()) ? valor : fecha;
+    return parsearFechaIso(valor) ?? valor;
   },
   z.date({ invalid_type_error: "Debe ser una fecha ISO 8601 válida" }),
 );

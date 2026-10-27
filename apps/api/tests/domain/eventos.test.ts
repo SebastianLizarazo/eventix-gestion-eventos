@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ObjectId } from "mongodb";
 import { prepararEvento, eventoSchema } from "../../src/domain/schemas/eventos.js";
 import { IDS } from "./fixtures.js";
 
@@ -139,13 +140,19 @@ describe("eventoSchema", () => {
     expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, categorias }).success).toBe(false);
   });
 
-  it("rechaza más de 20 tipos de ticket embebidos", () => {
-    const tipos_ticket = Array.from({ length: 21 }, (_, indice) => ({
-      ...TIPO_TICKET_BASE,
-      _id: `${IDS.tipoTicket1.slice(0, 20)}${indice.toString().padStart(4, "0")}`,
-    }));
+  it("acepta 10 tipos de ticket (tope del documento 04 §1.2) y rechaza el 11", () => {
+    const tipos = (cantidad: number) =>
+      Array.from({ length: cantidad }, (_, indice) => ({
+        ...TIPO_TICKET_BASE,
+        _id: `${IDS.tipoTicket1.slice(0, 20)}${indice.toString().padStart(4, "0")}`,
+      }));
 
-    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, tipos_ticket }).success).toBe(false);
+    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, tipos_ticket: tipos(10) }).success).toBe(
+      true,
+    );
+    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, tipos_ticket: tipos(11) }).success).toBe(
+      false,
+    );
   });
 
   it("rechaza un evento híbrido habilitado sin url de streaming", () => {
@@ -181,6 +188,42 @@ describe("eventoSchema", () => {
     expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, configuracion_evento }).success).toBe(false);
   });
 
+  it("rechaza más de 5 promociones activas (tope del documento 04 §1.2)", () => {
+    const promociones = Array.from({ length: 6 }, (_, indice) => ({
+      ...PROMOCION_BASE,
+      codigo: `PROMO${indice}`,
+      activo: true,
+    }));
+
+    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, promociones }).success).toBe(false);
+  });
+
+  it("rechaza una ventana de venta de un tipo de ticket invertida", () => {
+    const tipos_ticket = [
+      {
+        ...TIPO_TICKET_BASE,
+        restricciones: {
+          venta_inicio: "2025-06-01T00:00:00Z",
+          venta_fin: "2025-05-01T00:00:00Z",
+        },
+      },
+    ];
+
+    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, tipos_ticket }).success).toBe(false);
+  });
+
+  it("acepta una categoría con acentos y espacios", () => {
+    const categorias = ["música", "rock and roll"];
+
+    expect(eventoSchema.safeParse({ ...EVENTO_VALIDO, categorias }).success).toBe(true);
+  });
+
+  it("normaliza a hexadecimal un _id de MongoDB", () => {
+    const evento = eventoSchema.parse({ ...EVENTO_VALIDO, _id: new ObjectId(IDS.evento) });
+
+    expect(evento._id).toBe(IDS.evento);
+  });
+
   it("no exige que las métricas embebidas coincidan con la suma de aforos (deriva controlada)", () => {
     const metricas_evento = {
       tickets_vendidos_total: 999999,
@@ -206,9 +249,12 @@ describe("prepararEvento", () => {
     expect(evento.slug).toBe("rock-al-parque-2025");
   });
 
-  it("respeta un slug explícito válido", () => {
+  it("respeta un slug explícito válido aunque no derive del nombre", () => {
+    // Decisión de dominio: el slug se deriva del nombre cuando no viene, pero
+    // una URL comercial puede no derivar de él; lo que sí se exige es el
+    // formato y la unicidad (índice), no la coincidencia con el nombre.
     const evento = prepararEvento({
-      slug: "rock-2025",
+      slug: "rock-2025-oficial",
       nombre: "Rock al Parque 2025",
       tipo_evento: "masivo",
       fecha_inicio: "2025-09-12T16:00:00Z",
@@ -217,7 +263,7 @@ describe("prepararEvento", () => {
       lugar_id: IDS.lugar,
     });
 
-    expect(evento.slug).toBe("rock-2025");
+    expect(evento.slug).toBe("rock-2025-oficial");
   });
 
   it("inicializa el estado en borrador, las métricas y las marcas de tiempo", () => {

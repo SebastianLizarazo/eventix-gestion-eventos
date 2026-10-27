@@ -35,7 +35,8 @@ export const ticketSchema = z.object({
     .trim()
     .min(4)
     .max(64)
-    .regex(/^[A-Z0-9-]+$/, "El código QR solo admite letras, dígitos y guiones en mayúsculas"),
+    .regex(/^[A-Za-z0-9-]+$/, "El código QR solo admite letras, dígitos y guiones")
+    .transform((valor) => valor.toUpperCase()),
   estado: z.enum(ESTADO_TICKET).default("emitido"),
   evento_id: objectIdSchema,
   comprado_por_usuario_id: objectIdSchema,
