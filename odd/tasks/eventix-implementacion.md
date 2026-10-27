@@ -98,6 +98,7 @@
 | T0.3 | S3 | H0 · Cimientos | `docker-compose.yml` con MongoDB 7.x en replica set de un nodo + scripts `mongo:up/down/logs` | inline | none | **hecho** | `7571529` |
 | T0.4 | S2,S3 | H0 · Cimientos | Capa de config por env, logger y `GET /api/health` con estado de MongoDB | inline | none | **hecho** | `7571529` |
 | T0.5 | S2 | H0 · Cimientos | Primer test RED→GREEN del healthcheck + suite base | inline | none | **hecho** | `7571529` |
+| T0.6 | S2 | H0 · Cimientos | GitHub Actions: `install --frozen-lockfile` + lint + typecheck + test, con MongoDB 7.x en replica set | inline | item 5 | pendiente | — |
 | T1.1 | S4 | H1 · Dominio | Esquemas Zod de `usuarios`, `lugares`, `eventos`, `tickets`, `transacciones`, `auditoria_eventos` | inline | none | pendiente | — |
 | T1.2 | S4 | H1 · Dominio | Normalización (`email_normalizado`, `slug`), mappers `ObjectId`↔`string`, errores tipados | inline | none | pendiente | — |
 | T1.3 | S4 | H1 · Dominio | Tests unitarios de cada regla de validación | inline | none | pendiente | — |
