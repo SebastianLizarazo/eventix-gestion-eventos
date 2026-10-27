@@ -33,3 +33,7 @@ tmp/
 
 # Cache generado de skills (no versionar)
 .atl/
+
+# Engram: solo se versiona el pin del proyecto; el resto es cache local de sync.
+.engram/*
+!.engram/config.json
