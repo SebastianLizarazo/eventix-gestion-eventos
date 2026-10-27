@@ -19,22 +19,6 @@ jobs:
     name: Lint, tipos y tests
     runs-on: ubuntu-latest
 
-    # MongoDB 7.x como replica set de un solo nodo: es el mismo requisito que el
-    # entorno local (docker-compose.yml) porque el flujo de compra usa transacciones
-    # multi-documento, que no existen contra un mongod standalone.
-    # Hoy la suite es unitaria, pero desde H2 hay tests de integración contra la base.
-    services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"localhost:27017\"}]}) }; if (!db.hello().isWritablePrimary) { quit(1) }'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-          --health-start-period 20s
-
     env:
       NODE_ENV: test
       MONGODB_URI: mongodb://localhost:27017/eventix_test?replicaSet=rs0
@@ -55,6 +39,15 @@ jobs:
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
+
+      # MongoDB 7.x con replica set: el flujo de compra usa transacciones
+      # multi-documento, que no existen contra un mongod standalone. Por eso no se
+      # usa un service container (GitHub Actions no permite sobrescribir su comando)
+      # sino un contenedor arrancado desde el step, igual que en local.
+      - name: Levantar MongoDB 7.x (replica set rs0)
+        run: |
+          docker run -d --name eventix-mongo-ci -p 27017:27017 mongo:7 mongod --replSet rs0 --bind_ip_all
+          pnpm --filter @eventix/api mongo:init
 
       - name: Lint
         run: pnpm lint
