@@ -1,0 +1,22 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: eventix-mongo
+    # --replSet es obligatorio: las transacciones multi-documento del flujo de compra
+    # (documento 04 §6) no funcionan contra un mongod standalone.
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+    name: eventix-mongo-data

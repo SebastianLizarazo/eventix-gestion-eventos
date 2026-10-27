@@ -1,0 +1,32 @@
+{
+  "name": "eventix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eventix S.A. — prototipo funcional sobre MongoDB 7.x (ítem 5 del avance)",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @eventix/api dev",
+    "build": "pnpm --filter @eventix/api build",
+    "start": "pnpm --filter @eventix/api start",
+    "test": "pnpm --filter @eventix/api test",
+    "test:watch": "pnpm --filter @eventix/api test:watch",
+    "typecheck": "pnpm --filter @eventix/api typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mongo:up": "node scripts/mongo-up.mjs",
+    "mongo:down": "node scripts/mongo-down.mjs",
+    "mongo:logs": "docker compose logs -f mongo"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.0.0",
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}
