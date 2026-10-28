@@ -1,6 +1,7 @@
 import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { connectMongo, pingMongo } from "./db/mongo.js";
+import { crearRepositorios } from "./db/repos/index.js";
 import { logger } from "./logger.js";
 
 const startedAt = Date.now();
@@ -11,6 +12,8 @@ const app = createApp({
   checkMongo: () => pingMongo(db),
   version: "0.1.0",
   startedAt,
+  repos: crearRepositorios(db),
+  logger,
 });
 
 const server = app.listen(config.PORT, () => {
