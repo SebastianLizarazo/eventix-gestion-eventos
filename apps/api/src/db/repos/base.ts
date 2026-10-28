@@ -32,12 +32,21 @@ export type OpcionesListado = {
   skip?: number;
   limit?: number;
   orden?: OpcionesOrden;
+  /**
+   * Calcula el total de documentos que cumplen el filtro (por defecto `true`).
+   *
+   * Se desactiva para los filtros que **no admiten conteo**: `$near` y
+   * `$nearSphere` no se permiten en `countDocuments` (MongoDB los rechaza con
+   * "are not allowed in this context"), porque exigen ordenar por distancia.
+   */
+  total?: boolean;
 };
 
 /** Página de resultados: los documentos y el total que hay detrás de la página. */
 export type ResultadoPaginado<T> = {
   items: T[];
-  total: number;
+  /** Documentos que cumplen el filtro, o `null` si la lectura no lo calculó. */
+  total: number | null;
   skip: number;
   limit: number;
 };
@@ -91,7 +100,8 @@ export function crearRepositorio<TDominio extends { _id?: string }>(
     async listar(filtro, opciones) {
       const skip = Math.max(opciones?.skip ?? 0, 0);
       const limit = limitar(opciones?.limit);
-      const total = await coleccion.countDocuments(filtro);
+      const calcularTotal = opciones?.total ?? true;
+      const total = calcularTotal ? await coleccion.countDocuments(filtro) : null;
 
       const documentos = await coleccion
         .find(filtro)

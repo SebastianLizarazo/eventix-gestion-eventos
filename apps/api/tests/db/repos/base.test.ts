@@ -2,9 +2,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoClient, type Db } from "mongodb";
 import { config } from "../../../src/config.js";
 import { aplicarSetup } from "../../../src/db/setup.js";
-import { LIMITE_MAXIMO } from "../../../src/db/repos/base.js";
+import { LIMITE_MAXIMO, crearRepositorio } from "../../../src/db/repos/base.js";
 import { crearRepositorioUsuarios } from "../../../src/db/repos/usuarios.js";
-import { usuarioSchema, type Usuario } from "../../../src/domain/schemas/index.js";
+import { lugarABson } from "../../../src/db/mapeo.js";
+import {
+  lugarSchema,
+  usuarioSchema,
+  type Lugar,
+  type Usuario,
+} from "../../../src/domain/schemas/index.js";
 import { ErrorIdInvalido, ErrorValidacion } from "../../../src/domain/errors.js";
 import { IDS } from "../../domain/fixtures.js";
 import { DOCUMENTOS_EJEMPLO } from "../../domain/documentos-ejemplo.js";
@@ -150,6 +156,41 @@ describe("T3.1 · repositorio base", () => {
     const repositorio = crearRepositorioUsuarios(db.collection("usuarios"));
 
     await expect(repositorio.obtenerPorId("no-es-un-objectid")).rejects.toThrow(ErrorIdInvalido);
+  });
+
+  it("omite el conteo cuando el filtro no lo admite (el caso de $near)", async () => {
+    const lugares = db.collection("lugares");
+    await lugares.deleteMany({});
+    await lugares.insertOne({
+      nombre: "Corferias",
+      direccion: "Carrera 37",
+      ciudad: "Bogotá",
+      pais: "CO",
+      capacidad_total: 2500,
+      geometria: { type: "Point", coordinates: [-74.09, 4.654] },
+      salas: [],
+      activo: true,
+      creado_en: new Date("2023-08-01T10:00:00Z"),
+    });
+
+    const cerca = {
+      geometria: {
+        $near: { $geometry: { type: "Point", coordinates: [-74.09, 4.654] } },
+      },
+    };
+
+    // Sin el flag, el conteo falla: `$near` no se permite en `countDocuments`.
+    await expect(lugares.countDocuments(cerca)).rejects.toThrow();
+
+    const pagina = await crearRepositorio<Lugar>({
+      coleccion: lugares,
+      esquema: lugarSchema,
+      aBson: lugarABson,
+    }).listar(cerca, { total: false });
+
+    expect(pagina.total).toBeNull();
+    expect(pagina.items).toHaveLength(1);
+    expect(pagina.items[0]?.nombre).toBe("Corferias");
   });
 
   it("falla al leer un documento que no cumple el dominio, con detalle por campo", async () => {
