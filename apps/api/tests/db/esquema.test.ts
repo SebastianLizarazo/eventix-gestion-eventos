@@ -17,8 +17,24 @@ const ID_ORGANIZADOR = "66a800000000000000000001";
 const ID_LUGAR = "66b000000000000000000002";
 const ID_TIPO_TICKET = "66c200000000000000000004";
 
+/**
+ * Las seis colecciones del documento 04 §3, escritas a mano: si el test las
+ * tomara del propio módulo de validadores, un cambio en ese módulo pasaría
+ * inadvertido (y una colección podría quedar sin validator sin que nadie lo
+ * note).
+ */
+const COLECCIONES_ESPERADAS = [
+  "usuarios",
+  "lugares",
+  "eventos",
+  "tickets",
+  "transacciones",
+  "auditoria_eventos",
+];
+
 let cliente: MongoClient;
 let db: Db;
+let conectado = false;
 
 /** El dominio trabaja con identificadores en hexadecimal; en BSON son ObjectId. */
 function eventoEnBson() {
@@ -56,9 +72,16 @@ beforeAll(async () => {
   db = cliente.db(DB_PRUEBA);
   await db.dropDatabase();
   await aplicarValidadores(db);
+  conectado = true;
 });
 
 afterAll(async () => {
+  // Si el setup falló (por ejemplo, sin MongoDB), el teardown no debe tapar
+  // el error original con un acceso a un handle que nunca se asignó.
+  if (!conectado) {
+    return;
+  }
+
   await db.dropDatabase();
   await cliente.close();
 });
@@ -68,9 +91,10 @@ describe("T2.1 · validadores $jsonSchema en el servidor", () => {
     const colecciones = await db.listCollections({}).toArray();
     const nombres = colecciones.map((coleccion) => coleccion.name).sort();
 
-    expect(nombres).toEqual([...COLECCIONES].sort());
+    expect(nombres).toEqual([...COLECCIONES_ESPERADAS].sort());
+    expect([...COLECCIONES].sort()).toEqual([...COLECCIONES_ESPERADAS].sort());
 
-    for (const nombre of COLECCIONES) {
+    for (const nombre of COLECCIONES_ESPERADAS) {
       const coleccion = colecciones.find((c) => c.name === nombre);
       expect(coleccion?.options?.validator, `validator de ${nombre}`).toEqual(VALIDADORES[nombre]);
     }
@@ -139,7 +163,7 @@ describe("T2.1 · validadores $jsonSchema en el servidor", () => {
     const resultado = await aplicarValidadores(db);
 
     expect(resultado.coleccionesCreadas).toEqual([]);
-    expect(resultado.coleccionesActualizadas.sort()).toEqual([...COLECCIONES].sort());
+    expect(resultado.coleccionesActualizadas.sort()).toEqual([...COLECCIONES_ESPERADAS].sort());
     expect(await eventos.countDocuments({})).toBe(1);
     await eventos.deleteMany({});
   });

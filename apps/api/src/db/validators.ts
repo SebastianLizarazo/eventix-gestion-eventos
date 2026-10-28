@@ -121,6 +121,7 @@ const VALIDADOR_LUGARES: Document = {
       },
       salas: {
         bsonType: "array",
+        // Tope del dominio (`salas`: máx. 10 embebidas por lugar).
         maxItems: 10,
         items: {
           bsonType: "object",
@@ -166,11 +167,13 @@ const VALIDADOR_EVENTOS: Document = {
       lugar_id: { bsonType: "objectId" },
       categorias: {
         bsonType: "array",
+        // Tope del dominio (`categorias`: máx. 5, documento 04 §3.3).
         maxItems: 5,
         items: { bsonType: "string", minLength: 1, maxLength: 60 },
       },
       tags: {
         bsonType: "array",
+        // Tope del dominio (`tags`: máx. 20, documento 04 §3.3).
         maxItems: 20,
         items: { bsonType: "string", minLength: 1, maxLength: 40 },
       },
@@ -203,6 +206,7 @@ const VALIDADOR_EVENTOS: Document = {
       },
       promociones: {
         bsonType: "array",
+        // Tope del dominio (`promociones`: máx. 10 embebidas).
         maxItems: 10,
         items: {
           bsonType: "object",
@@ -256,7 +260,9 @@ const VALIDADOR_EVENTOS: Document = {
                       bsonType: "array",
                       minItems: 2,
                       maxItems: 2,
-                      items: { bsonType: "number" },
+                      // El dominio lo declara como tupla de dos enteros: el
+                      // servidor usa la forma de tupla equivalente.
+                      items: [{ bsonType: "number" }, { bsonType: "number" }],
                     },
                   },
                 },
