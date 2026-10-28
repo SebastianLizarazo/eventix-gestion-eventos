@@ -31,7 +31,12 @@ export type RepositorioTransacciones = Repositorio<Transaccion> & {
     hasta: Date,
     opciones?: OpcionesListado,
   ): Promise<ResultadoPaginado<Transaccion>>;
-  /** Busca por pasarela y referencia (índice `transacciones_pasarela_referencia_parcial`). */
+  /**
+   * Transacción viva de una referencia de pasarela (índice
+   * `transacciones_pasarela_referencia_parcial`): la que representa un cargo
+   * pendiente o cobrado. Un intento rechazado o anulado no se cobró y no
+   * bloquea un reintento.
+   */
   porReferencia(pasarela: string, referencia: string): Promise<Transaccion | null>;
   /** Transacciones confirmadas en una ventana (índice `transacciones_confirmada_en`). */
   porFechaConfirmacion(
@@ -73,19 +78,22 @@ export function crearRepositorioTransacciones(
       // El dominio recorta (`trim`) la pasarela y la referencia al escribir:
       // la búsqueda recorta igual para no fallar por espacios sobrantes.
       //
-      // **Aviso (H3 · T3.3):** el índice que cubre esta consulta
-      // (`transacciones_pasarela_referencia_parcial`) es *parcial* y su
-      // predicado es `{ estado: { $in: ["pendiente", "aprobada"] } }`. Como
-      // esta consulta NO restringe `estado` (a propósito: la referencia
-      // identifica el intento aunque la transacción haya quedado rechazada o
-      // anulada), no implica ese predicado y MongoDB la resuelve con
-      // COLLSCAN. Si el requisito es que esta consulta use el índice, el
-      // predicado `estado: { $in: ["pendiente", "aprobada"] }` debe entrar en
-      // el filtro: eso cambia el resultado (una transacción rechazada con esa
-      // referencia dejaría de encontrarse).
+      // El filtro incluye **el mismo predicado que el índice parcial**
+      // (`estado: { $in: ["pendiente", "aprobada"] }`) porque MongoDB solo usa
+      // un índice parcial cuando la consulta **implica** su
+      // `partialFilterExpression`: sin ese predicado la búsqueda caía en
+      // COLLSCAN.
+      //
+      // La semántica es la del cargo: se devuelve la transacción **viva** de esa
+      // referencia, la que representa un cargo pendiente o cobrado. Un intento
+      // rechazado o anulado no se cobró, así que no bloquea un reintento con la
+      // misma referencia (es lo que el propio índice parcial garantiza: solo
+      // protege el cargo). Los intentos que no están vivos se consultan por
+      // estado y fecha, con su propio índice.
       return base.obtenerUno({
         pasarela: pasarela.trim(),
         referencia_pasarela: referencia.trim(),
+        estado: { $in: ["pendiente", "aprobada"] },
       });
     },
 

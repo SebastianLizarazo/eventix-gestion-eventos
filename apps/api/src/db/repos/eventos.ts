@@ -1,4 +1,5 @@
 import type { Collection, Document } from "mongodb";
+import { normalizarCodigo } from "../../domain/normalization.js";
 import { toObjectId } from "../../domain/ids.js";
 import { eventoSchema, type Evento } from "../../domain/schemas/index.js";
 import { eventoABson } from "../mapeo.js";
@@ -46,6 +47,8 @@ export type RepositorioEventos = Repositorio<Evento> & {
   conPromocionActiva(codigo: string): Promise<Evento | null>;
   /** Ranking de ventas (índice `eventos_metricas_tickets_vendidos_total`). */
   masVendidos(limite: number): Promise<Evento[]>;
+  /** Eventos que empiezan desde una fecha, en orden cronológico (índice `eventos_fecha_inicio`). */
+  proximos(desde: Date, opciones?: OpcionesListado): Promise<ResultadoPaginado<Evento>>;
 };
 
 /**
@@ -102,10 +105,11 @@ export function crearRepositorioEventos(coleccion: Collection<Document>): Reposi
 
     async conPromocionActiva(codigo) {
       // El dominio persiste el código de promoción en MAYÚSCULAS
-      // (`promocionSchema` lo transforma), así que el parámetro se normaliza
-      // igual: si no, la búsqueda no encontraría el documento.
+      // (`promocionSchema` lo transforma con la misma regla), así que el
+      // parámetro se normaliza igual: si no, la búsqueda no encontraría el
+      // documento.
       return base.obtenerUno({
-        "promociones.codigo": codigo.trim().toUpperCase(),
+        "promociones.codigo": normalizarCodigo(codigo),
         "promociones.activo": true,
       });
     },
@@ -119,6 +123,16 @@ export function crearRepositorioEventos(coleccion: Collection<Document>): Reposi
       );
 
       return items;
+    },
+
+    async proximos(desde, opciones) {
+      // El rango y el orden comparten la misma clave, así que el índice
+      // `eventos_fecha_inicio` resuelve la consulta y además da el orden: sin
+      // esa coincidencia el plan tendría que ordenar aparte.
+      return base.listar(
+        { fecha_inicio: { $gte: desde } },
+        { ...opciones, orden: { fecha_inicio: 1 } },
+      );
     },
   };
 }

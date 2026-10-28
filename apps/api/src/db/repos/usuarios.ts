@@ -2,7 +2,12 @@ import type { Collection, Document } from "mongodb";
 import { normalizeEmail } from "../../domain/normalization.js";
 import { usuarioSchema, type Usuario } from "../../domain/schemas/index.js";
 import { usuarioABson } from "../mapeo.js";
-import { crearRepositorio, type Repositorio } from "./base.js";
+import {
+  crearRepositorio,
+  type OpcionesListado,
+  type Repositorio,
+  type ResultadoPaginado,
+} from "./base.js";
 
 /**
  * Repositorio de `usuarios` (documento 04 §3.1).
@@ -16,6 +21,8 @@ export type RepositorioUsuarios = Repositorio<Usuario> & {
   porEmailNormalizado(email: string): Promise<Usuario | null>;
   /** Lista los usuarios de un tipo (índice `usuarios_tipo_usuario`). */
   porTipoUsuario(tipo: Usuario["tipo_usuario"][number]): Promise<Usuario[]>;
+  /** Lista los usuarios que prefieren un idioma (índice `usuarios_preferencias_idioma`). */
+  porIdioma(idioma: string, opciones?: OpcionesListado): Promise<ResultadoPaginado<Usuario>>;
 };
 
 /**
@@ -41,6 +48,10 @@ export function crearRepositorioUsuarios(coleccion: Collection<Document>): Repos
       const { items } = await base.listar({ tipo_usuario: tipo });
 
       return items;
+    },
+
+    async porIdioma(idioma, opciones) {
+      return base.listar({ "preferencias.idioma": idioma }, opciones);
     },
   };
 }

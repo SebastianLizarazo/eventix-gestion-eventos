@@ -323,4 +323,25 @@ describe("T3.2 · repositorio de eventos", () => {
       "concierto-de-jazz-2025",
     ]);
   });
+
+  it("lista los eventos que empiezan desde una fecha, en orden cronológico (índice eventos_fecha_inicio)", async () => {
+    const repositorio = crearRepositorioEventos(db.collection("eventos"));
+
+    const proximos = await repositorio.proximos(new Date("2025-08-15T00:00:00Z"));
+
+    expect(proximos.items.map((evento) => evento.slug)).toEqual([
+      "rock-al-parque-2025",
+      "concierto-de-jazz-2025",
+    ]);
+
+    // El evento privado (agosto) y el borrador (julio) quedan fuera por fecha.
+    const desdeJulio = await repositorio.proximos(new Date("2025-07-01T00:00:00Z"));
+
+    expect(desdeJulio.items.map((evento) => evento.slug)).toEqual([
+      "borrador-2025",
+      "evento-privado-2025",
+      "rock-al-parque-2025",
+      "concierto-de-jazz-2025",
+    ]);
+  });
 });

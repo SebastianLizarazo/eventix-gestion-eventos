@@ -183,16 +183,28 @@ describe("T3.3 · repositorio de transacciones", () => {
     await expect(repositorio.porReferencia("wompi_mock", "TXN-9999")).resolves.toBeNull();
   });
 
-  it("la búsqueda por referencia no filtra por estado: también encuentra una rechazada", async () => {
+  it("la búsqueda por referencia devuelve el cargo vivo: una rechazada no aparece", async () => {
     const repositorio = crearRepositorioTransacciones(db.collection("transacciones"));
 
-    // El índice `transacciones_pasarela_referencia_parcial` solo cubre
-    // `pendiente` y `aprobada`, así que esta consulta no puede usarlo: es
-    // una decisión consciente, no un descuido.
+    // La consulta replica el predicado del índice parcial
+    // (`{ estado: { $in: ["pendiente", "aprobada"] } }`) porque MongoDB solo usa
+    // un índice parcial cuando la consulta lo implica. La semántica es la del
+    // cargo: un intento rechazado no se cobró, así que no bloquea un reintento
+    // con la misma referencia.
     const rechazada = await repositorio.porReferencia("stripe_mock", "TXN-0003");
 
-    expect(rechazada).not.toBeNull();
-    expect(rechazada?.estado).toBe("rechazada");
+    expect(rechazada).toBeNull();
+
+    // Y el intento rechazado sigue siendo consultable por su propio camino.
+    const porEstado = await repositorio.porEstadoYFecha(
+      "rechazada",
+      new Date("2025-03-01T00:00:00Z"),
+      new Date("2025-04-30T23:59:59Z"),
+    );
+
+    expect(
+      porEstado.items.some((transaccion) => transaccion.referencia_pasarela === "TXN-0003"),
+    ).toBe(true);
   });
 
   it("lista las transacciones confirmadas en una ventana (índice transacciones_confirmada_en)", async () => {

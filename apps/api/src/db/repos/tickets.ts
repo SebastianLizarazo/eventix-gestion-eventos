@@ -1,4 +1,5 @@
 import type { Collection, Document } from "mongodb";
+import { normalizarCodigo } from "../../domain/normalization.js";
 import { toObjectId } from "../../domain/ids.js";
 import { ticketSchema, type Ticket } from "../../domain/schemas/index.js";
 import { ticketABson } from "../mapeo.js";
@@ -57,9 +58,9 @@ export function crearRepositorioTickets(coleccion: Collection<Document>): Reposi
 
     async porCodigoQr(codigo) {
       // El dominio persiste el código QR en MAYÚSCULAS (`ticketSchema` lo
-      // transforma), así que el parámetro se normaliza igual: si no, la
-      // búsqueda no encontraría el documento.
-      return base.obtenerUno({ codigo_qr: codigo.trim().toUpperCase() });
+      // transforma con la misma regla), así que el parámetro se normaliza
+      // igual: si no, la búsqueda no encontraría el documento.
+      return base.obtenerUno({ codigo_qr: normalizarCodigo(codigo) });
     },
 
     async porEventoYEstado(eventoId, estado, opciones) {

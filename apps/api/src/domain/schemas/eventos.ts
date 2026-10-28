@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { slugify } from "../normalization.js";
+import { slugify, normalizarCodigo } from "../normalization.js";
 import { validar } from "../validar.js";
 import { dateSchema, objectIdSchema, slugSchema } from "./common.js";
 
@@ -63,7 +63,7 @@ export const promocionSchema = z
       .min(1)
       .max(64)
       .regex(/^[A-Za-z0-9_-]+$/, "El código solo admite letras, dígitos, guiones y guiones bajos")
-      .transform((valor) => valor.toUpperCase()),
+      .transform(normalizarCodigo),
     tipo: z.enum(TIPO_PROMOCION),
     valor: z.number().int().positive(),
     aplica_a_tipo_ticket_ids: z.array(objectIdSchema).default([]),

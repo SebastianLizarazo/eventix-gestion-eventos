@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizarCodigo } from "../normalization.js";
 import { dateSchema, objectIdSchema } from "./common.js";
 
 /**
@@ -36,7 +37,7 @@ export const ticketSchema = z.object({
     .min(4)
     .max(64)
     .regex(/^[A-Za-z0-9-]+$/, "El código QR solo admite letras, dígitos y guiones")
-    .transform((valor) => valor.toUpperCase()),
+    .transform(normalizarCodigo),
   estado: z.enum(ESTADO_TICKET).default("emitido"),
   evento_id: objectIdSchema,
   comprado_por_usuario_id: objectIdSchema,

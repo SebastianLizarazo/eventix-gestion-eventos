@@ -33,6 +33,18 @@ export function normalizeEmail(email: string): string {
 }
 
 /**
+ * Normaliza un código de ticket o de promoción: recorta y pasa a MAYÚSCULAS.
+ *
+ * Los dos códigos se persisten en mayúsculas (`codigo_qr` y `promociones.codigo`
+ * sostienen índices, y una búsqueda solo encuentra el documento si usa la misma
+ * forma). La regla vive **aquí** para que el esquema que escribe y el
+ * repositorio que busca la apliquen la misma función y no dos copias.
+ */
+export function normalizarCodigo(codigo: string): string {
+  return codigo.trim().toUpperCase();
+}
+
+/**
  * Convierte un texto en slug: minúsculas, sin acentos y separadas por guiones.
  *
  * "Rock al Parque 2025" -> "rock-al-parque-2025"
