@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validar } from "../validar.js";
 import { dateSchema, objectIdSchema } from "./common.js";
 
 /** Esquema de `transacciones` (documento 04 §3.5): sin embebidos, escritura alta. */
@@ -42,3 +43,22 @@ export const transaccionSchema = z.object({
 });
 
 export type Transaccion = z.output<typeof transaccionSchema>;
+
+/**
+ * Datos que acepta el cliente al crear una transacción.
+ *
+ * El servidor pone el identificador y las dos marcas de tiempo: la de creación
+ * la pone la API y la de confirmación, el flujo de pago.
+ */
+export const transaccionInputSchema = transaccionSchema.omit({
+  _id: true,
+  creada_en: true,
+  confirmada_en: true,
+});
+
+/** Prepara una transacción para persistir: le asigna la fecha de creación. */
+export function prepararTransaccion(input: unknown, ahora: Date = new Date()): Transaccion {
+  const base = validar(transaccionInputSchema, input, "transacción");
+
+  return validar(transaccionSchema, { ...base, creada_en: ahora }, "transacción");
+}

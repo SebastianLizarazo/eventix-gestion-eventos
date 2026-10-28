@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import type { Document, Filter } from "mongodb";
 import { toObjectId } from "../../domain/ids.js";
 import { normalizarCodigo } from "../../domain/normalization.js";
@@ -13,11 +13,11 @@ import {
   tipoTicketSchema,
 } from "../../domain/schemas/index.js";
 import { validar } from "../../domain/validar.js";
-import type { RepositorioEventos } from "../../db/repos/eventos.js";
+import type { Repositorios } from "../../db/repos/index.js";
 import { promocionABson, tipoTicketABson } from "../../db/mapeo.js";
 import { ErrorHttp } from "../errores.js";
+import { crearRouterCrud } from "./crud.js";
 import {
-  camposAnulados,
   camposPermitidos,
   leerEnum,
   leerFecha,
@@ -80,114 +80,17 @@ const CAMPOS_PROMOCION = [
 ] as const;
 
 /** Crea el router del recurso `eventos`. */
-export function crearRouterEventos(repos: RepositorioEventos): Router {
+export function crearRouterEventos(repos: Repositorios): Router {
   const router = Router();
 
   router.get("/catalogo", async (req, res) => {
-    const resultado = await repos.catalogoPublico(leerPaginacionDe(req));
+    const resultado = await repos.eventos.catalogoPublico(leerPaginacionDe(req));
 
     res.status(200).json(pagina(resultado));
-  });
-
-  router.get("/", async (req, res) => {
-    const resultado = await repos.listar(filtroDeEventos(req), {
-      ...leerPaginacionDe(req),
-      orden: { fecha_inicio: 1 },
-    });
-
-    res.status(200).json(pagina(resultado));
-  });
-
-  router.get("/:id", async (req, res) => {
-    const evento = await repos.obtenerPorId(leerId(req.params.id));
-
-    if (!evento) {
-      throw ErrorHttp.noEncontrado("No existe el evento");
-    }
-
-    res.status(200).json(evento);
-  });
-
-  router.post("/", async (req, res) => {
-    const evento = prepararEvento(leerObjeto(req.body));
-    const id = await repos.insertar(evento);
-
-    res
-      .status(201)
-      .location(`/api/eventos/${id}`)
-      .json({ ...evento, _id: id });
-  });
-
-  router.patch("/:id", async (req, res) => {
-    const id = leerId(req.params.id);
-    const actual = await repos.obtenerPorId(id);
-
-    if (!actual) {
-      throw ErrorHttp.noEncontrado("No existe el evento");
-    }
-
-    const cuerpo = leerObjeto(req.body);
-    const anulados = camposAnulados(cuerpo, CAMPOS_EDITABLES);
-    const editable = camposPermitidos(cuerpo, CAMPOS_EDITABLES);
-
-    for (const campo of anulados) {
-      delete editable[campo];
-    }
-
-    if (Object.keys(editable).length === 0 && anulados.length === 0) {
-      throw ErrorHttp.peticionInvalida("La petición no incluye ningún campo editable");
-    }
-
-    verificarVersion(cuerpo._v, actual._v);
-
-    const ahora = new Date();
-    const fusionado: Record<string, unknown> = { ...actual, ...editable, actualizado_en: ahora };
-
-    for (const campo of anulados) {
-      delete fusionado[campo];
-    }
-
-    const validado = validar(eventoSchema, fusionado, "evento") as unknown as Record<
-      string,
-      unknown
-    >;
-
-    const cambios: Document = { actualizado_en: ahora };
-
-    for (const campo of CAMPOS_EDITABLES) {
-      if (!(campo in editable)) {
-        continue;
-      }
-
-      cambios[campo] = aBsonDeEvento(campo, validado[campo]);
-    }
-
-    const operadores: Document = { $set: cambios, $inc: { _v: 1 } };
-
-    if (anulados.length > 0) {
-      operadores.$unset = Object.fromEntries(anulados.map((campo) => [campo, ""]));
-    }
-
-    await repos.actualizarPorId(id, operadores);
-
-    const actualizado = await repos.obtenerPorId(id);
-
-    res.status(200).json(actualizado);
-  });
-
-  router.delete("/:id", async (req, res) => {
-    const id = leerId(req.params.id);
-    const eliminado = await repos.eliminarPorId(id);
-
-    if (!eliminado) {
-      throw ErrorHttp.noEncontrado("No existe el evento");
-    }
-
-    res.status(204).end();
   });
 
   router.get("/:id/tipos-ticket", async (req, res) => {
-    const evento = await repos.obtenerPorId(leerId(req.params.id));
+    const evento = await repos.eventos.obtenerPorId(leerId(req.params.id));
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -198,7 +101,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
 
   router.post("/:id/tipos-ticket", async (req, res) => {
     const id = leerId(req.params.id);
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -208,7 +111,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
 
     validar(eventoSchema, { ...evento, tipos_ticket: [...evento.tipos_ticket, tipo] }, "evento");
 
-    await repos.actualizarPorId(id, { $push: { tipos_ticket: tipoTicketABson(tipo) } });
+    await repos.eventos.actualizarPorId(id, { $push: { tipos_ticket: tipoTicketABson(tipo) } });
 
     res.status(201).location(`/api/eventos/${id}/tipos-ticket/${tipo._id}`).json(tipo);
   });
@@ -216,7 +119,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
   router.patch("/:id/tipos-ticket/:tipoId", async (req, res) => {
     const id = leerId(req.params.id);
     const tipoId = leerId(req.params.tipoId, "tipoId");
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -231,7 +134,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
     const editable = camposPermitidos(leerObjeto(req.body), CAMPOS_TIPO_TICKET);
     const fusionado = validar(tipoTicketSchema, { ...tipo, ...editable }, "tipo de ticket");
 
-    await repos.actualizarPorId(
+    await repos.eventos.actualizarPorId(
       id,
       { $set: { "tipos_ticket.$[tipo]": tipoTicketABson(fusionado) } },
       { arrayFilters: [{ "tipo._id": toObjectId(tipoId) }] },
@@ -243,7 +146,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
   router.delete("/:id/tipos-ticket/:tipoId", async (req, res) => {
     const id = leerId(req.params.id);
     const tipoId = leerId(req.params.tipoId, "tipoId");
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -265,13 +168,15 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
       );
     }
 
-    await repos.actualizarPorId(id, { $pull: { tipos_ticket: { _id: toObjectId(tipoId) } } });
+    await repos.eventos.actualizarPorId(id, {
+      $pull: { tipos_ticket: { _id: toObjectId(tipoId) } },
+    });
 
     res.status(204).end();
   });
 
   router.get("/:id/promociones", async (req, res) => {
-    const evento = await repos.obtenerPorId(leerId(req.params.id));
+    const evento = await repos.eventos.obtenerPorId(leerId(req.params.id));
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -282,7 +187,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
 
   router.post("/:id/promociones", async (req, res) => {
     const id = leerId(req.params.id);
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -292,7 +197,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
 
     validar(eventoSchema, { ...evento, promociones: [...evento.promociones, promocion] }, "evento");
 
-    await repos.actualizarPorId(id, { $push: { promociones: promocionABson(promocion) } });
+    await repos.eventos.actualizarPorId(id, { $push: { promociones: promocionABson(promocion) } });
 
     res.status(201).location(`/api/eventos/${id}/promociones/${promocion.codigo}`).json(promocion);
   });
@@ -300,7 +205,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
   router.patch("/:id/promociones/:codigo", async (req, res) => {
     const id = leerId(req.params.id);
     const codigo = normalizarCodigo(String(req.params.codigo));
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -324,7 +229,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
       "evento",
     );
 
-    await repos.actualizarPorId(
+    await repos.eventos.actualizarPorId(
       id,
       { $set: { "promociones.$[promo]": promocionABson(fusionado) } },
       { arrayFilters: [{ "promo.codigo": codigo }] },
@@ -336,7 +241,7 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
   router.delete("/:id/promociones/:codigo", async (req, res) => {
     const id = leerId(req.params.id);
     const codigo = normalizarCodigo(String(req.params.codigo));
-    const evento = await repos.obtenerPorId(id);
+    const evento = await repos.eventos.obtenerPorId(id);
 
     if (!evento) {
       throw ErrorHttp.noEncontrado("No existe el evento");
@@ -348,16 +253,32 @@ export function crearRouterEventos(repos: RepositorioEventos): Router {
       throw ErrorHttp.noEncontrado("No existe la promoción en el evento");
     }
 
-    await repos.actualizarPorId(id, { $pull: { promociones: { codigo } } });
+    await repos.eventos.actualizarPorId(id, { $pull: { promociones: { codigo } } });
 
     res.status(204).end();
   });
+
+  router.use(
+    crearRouterCrud({
+      repositorio: repos.eventos,
+      esquema: eventoSchema,
+      preparar: prepararEvento,
+      camposEditables: CAMPOS_EDITABLES,
+      camposConId: ["organizador_id", "lugar_id"],
+      nombre: "evento",
+      ruta: "/api/eventos",
+      conVersion: true,
+      campoActualizacion: "actualizado_en",
+      filtro: filtroDeEventos,
+      orden: { fecha_inicio: 1 },
+    }),
+  );
 
   return router;
 }
 
 /** Filtro de la lista de eventos, con los parámetros de la query. */
-function filtroDeEventos(req: { query: unknown }): Filter<Document> {
+function filtroDeEventos(req: Request): Filter<Document> {
   const query = (req.query ?? {}) as Record<string, unknown>;
   const filtro: Filter<Document> = {};
 
@@ -407,27 +328,4 @@ function filtroDeEventos(req: { query: unknown }): Filter<Document> {
   }
 
   return filtro;
-}
-
-/** Convierte a BSON el valor de un campo editable del evento. */
-function aBsonDeEvento(campo: string, valor: unknown): unknown {
-  if (campo === "organizador_id" || campo === "lugar_id") {
-    return toObjectId(String(valor));
-  }
-
-  return valor;
-}
-
-/**
- * Comprueba la versión optimista: si el cliente manda la versión que leyó y ya
- * no es la vigente, el recurso cambió y la edición se rechaza.
- */
-function verificarVersion(esperada: unknown, actual: number): void {
-  if (esperada === undefined) {
-    return;
-  }
-
-  if (esperada !== actual) {
-    throw ErrorHttp.conflicto("El recurso cambió desde que se leyó");
-  }
 }

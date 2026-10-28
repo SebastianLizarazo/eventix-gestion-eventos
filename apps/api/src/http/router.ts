@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { createHealthRouter } from "./health.js";
+import { crearRouterAuditoria } from "./recursos/auditoria.js";
 import { crearRouterEventos } from "./recursos/eventos.js";
+import { crearRouterLugares } from "./recursos/lugares.js";
+import { crearRouterTickets } from "./recursos/tickets.js";
+import { crearRouterTransacciones } from "./recursos/transacciones.js";
+import { crearRouterUsuarios } from "./recursos/usuarios.js";
 import type { DepsApp } from "../app.js";
 
 /**
@@ -11,9 +16,15 @@ import type { DepsApp } from "../app.js";
  */
 export function createRouter(deps: DepsApp): Router {
   const router = Router();
+  const repos = deps.repos;
 
   router.use(createHealthRouter(deps));
-  router.use("/eventos", crearRouterEventos(deps.repos.eventos));
+  router.use("/usuarios", crearRouterUsuarios(repos));
+  router.use("/lugares", crearRouterLugares(repos));
+  router.use("/eventos", crearRouterEventos(repos));
+  router.use("/tickets", crearRouterTickets(repos));
+  router.use("/transacciones", crearRouterTransacciones(repos));
+  router.use("/auditoria", crearRouterAuditoria(repos));
 
   return router;
 }

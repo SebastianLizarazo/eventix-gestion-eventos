@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validar } from "../validar.js";
 import { dateSchema, objectIdSchema } from "./common.js";
 
 /**
@@ -34,3 +35,21 @@ export const auditoriaSchema = z.object({
 });
 
 export type Auditoria = z.output<typeof auditoriaSchema>;
+
+/**
+ * Datos que acepta el cliente al registrar una auditoría.
+ *
+ * El servidor pone el identificador y la fecha de ocurrencia: el rastro se
+ * escribe con la hora del servidor, no con la del cliente.
+ */
+export const auditoriaInputSchema = auditoriaSchema.omit({
+  _id: true,
+  ocurrido_en: true,
+});
+
+/** Prepara un registro de auditoría para persistir: le asigna la fecha de ocurrencia. */
+export function prepararAuditoria(input: unknown, ahora: Date = new Date()): Auditoria {
+  const base = validar(auditoriaInputSchema, input, "auditoría");
+
+  return validar(auditoriaSchema, { ...base, ocurrido_en: ahora }, "auditoría");
+}

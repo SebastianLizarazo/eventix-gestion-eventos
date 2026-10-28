@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizarCodigo } from "../normalization.js";
+import { validar } from "../validar.js";
 import { dateSchema, objectIdSchema } from "./common.js";
 
 /**
@@ -54,3 +55,25 @@ export const ticketSchema = z.object({
 });
 
 export type Ticket = z.output<typeof ticketSchema>;
+
+/**
+ * Datos que acepta el cliente al crear un ticket.
+ *
+ * El servidor pone el identificador, la fecha de emisión, el historial de
+ * revalidaciones y la versión: son datos del sistema, no del cliente.
+ */
+export const ticketInputSchema = ticketSchema.omit({
+  _id: true,
+  emitido_en: true,
+  validado_en: true,
+  validado_por_puerta: true,
+  revalidaciones: true,
+  _v: true,
+});
+
+/** Prepara un ticket para persistir: le asigna la fecha de emisión y la versión. */
+export function prepararTicket(input: unknown, ahora: Date = new Date()): Ticket {
+  const base = validar(ticketInputSchema, input, "ticket");
+
+  return validar(ticketSchema, { ...base, emitido_en: ahora, revalidaciones: [], _v: 0 }, "ticket");
+}

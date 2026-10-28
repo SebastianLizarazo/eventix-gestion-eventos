@@ -58,6 +58,15 @@ export function leerFecha(valor: unknown, nombre: string): Date | undefined {
   return fecha;
 }
 
+/** Lee un número de la query (coordenadas, distancias). */
+export function leerNumero(valor: unknown, nombre: string): number {
+  if (typeof valor !== "string" || !/^-?\d+(\.\d+)?$/.test(valor)) {
+    throw ErrorHttp.peticionInvalida(`El parámetro '${nombre}' debe ser un número`);
+  }
+
+  return Number(valor);
+}
+
 /** Lee el cuerpo de la petición como objeto plano. */
 export function leerObjeto(cuerpo: unknown): Record<string, unknown> {
   if (cuerpo === undefined || cuerpo === null) {

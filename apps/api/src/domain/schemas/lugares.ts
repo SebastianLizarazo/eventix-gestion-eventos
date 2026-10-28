@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { dateSchema, objectIdSchema } from "./common.js";
+import { validar } from "../validar.js";
 
 /** Esquema de `lugares` (documento 04 §3.2). */
 
@@ -42,3 +43,10 @@ export const lugarSchema = lugarInputSchema.extend({
 
 export type Lugar = z.output<typeof lugarSchema>;
 export type LugarInput = z.input<typeof lugarInputSchema>;
+
+/** Prepara un lugar para persistir: le asigna la marca de tiempo de creación. */
+export function prepararLugar(input: unknown, ahora: Date = new Date()): Lugar {
+  const base = validar(lugarInputSchema, input, "lugar");
+
+  return validar(lugarSchema, { ...base, creado_en: ahora }, "lugar");
+}
