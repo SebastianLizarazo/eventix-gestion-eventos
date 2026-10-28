@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createHealthRouter } from "./health.js";
+import { openapi } from "./openapi.js";
 import { crearRouterAuditoria } from "./recursos/auditoria.js";
 import { crearRouterEventos } from "./recursos/eventos.js";
 import { crearRouterLugares } from "./recursos/lugares.js";
@@ -19,6 +20,9 @@ export function createRouter(deps: DepsApp): Router {
   const repos = deps.repos;
 
   router.use(createHealthRouter(deps));
+  router.get("/openapi.json", (_req, res) => {
+    res.status(200).json(openapi);
+  });
   router.use("/usuarios", crearRouterUsuarios(repos));
   router.use("/lugares", crearRouterLugares(repos));
   router.use("/eventos", crearRouterEventos(repos));
