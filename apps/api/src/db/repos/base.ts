@@ -1,4 +1,11 @@
-import { ObjectId, type Collection, type Document, type Filter, type Sort } from "mongodb";
+import {
+  ObjectId,
+  type Collection,
+  type Document,
+  type Filter,
+  type Sort,
+  type UpdateOptions,
+} from "mongodb";
 import type { ZodType, ZodTypeDef } from "zod";
 import { toObjectId } from "../../domain/ids.js";
 import { validar } from "../../domain/validar.js";
@@ -67,7 +74,7 @@ export type Repositorio<TDominio extends { _id?: string }> = {
   obtenerPorId(id: string): Promise<TDominio | null>;
   obtenerUno(filtro: Filter<Document>): Promise<TDominio | null>;
   insertar(documento: TDominio): Promise<string>;
-  actualizarPorId(id: string, cambios: Document): Promise<boolean>;
+  actualizarPorId(id: string, cambios: Document, opciones?: UpdateOptions): Promise<boolean>;
   eliminarPorId(id: string): Promise<boolean>;
 };
 
@@ -141,14 +148,18 @@ export function crearRepositorio<TDominio extends { _id?: string }>(
       return id.toHexString();
     },
 
-    async actualizarPorId(id, cambios) {
+    async actualizarPorId(id, cambios, opciones) {
       // `cambios` son operadores de MongoDB (`$set`, `$inc`, ...): sus valores
       // deben ser compatibles con BSON (`Date` para fechas, `ObjectId` para
       // referencias). El repositorio no los convierte porque el conversor
       // trabaja sobre el documento completo, no sobre una actualización
       // parcial. `_v` tampoco se incrementa aquí: el bloqueo optimista se
       // decide en el caso de uso que escribe.
-      const resultado = await coleccion.updateOne({ _id: toObjectId(id) }, cambios);
+      //
+      // `opciones` existe para las actualizaciones sobre elementos embebidos:
+      // `arrayFilters` permite escribir en un elemento concreto de un array
+      // (`tipos_ticket.$[tipo]`) sin reescribir el array entero.
+      const resultado = await coleccion.updateOne({ _id: toObjectId(id) }, cambios, opciones);
 
       return resultado.matchedCount > 0;
     },

@@ -4,7 +4,9 @@ import type {
   Auditoria,
   Evento,
   Lugar,
+  Promocion,
   Ticket,
+  TipoTicket,
   Transaccion,
   Usuario,
 } from "../domain/schemas/index.js";
@@ -95,14 +97,27 @@ export function eventoABson(evento: DocumentoConId<Evento>): Document {
     _id: toObjectId(evento._id),
     organizador_id: toObjectId(evento.organizador_id),
     lugar_id: toObjectId(evento.lugar_id),
-    tipos_ticket: evento.tipos_ticket.map((tipo) => ({
-      ...tipo,
-      _id: toObjectId(tipo._id),
-    })),
-    promociones: evento.promociones.map((promocion) => ({
-      ...promocion,
-      aplica_a_tipo_ticket_ids: promocion.aplica_a_tipo_ticket_ids.map((id) => toObjectId(id)),
-    })),
+    tipos_ticket: evento.tipos_ticket.map(tipoTicketABson),
+    promociones: evento.promociones.map(promocionABson),
+  });
+}
+
+/**
+ * Un tipo de ticket embebido: su `_id` es un `objectId` en el documento
+ * persistido (el dominio lo maneja como hexadecimal).
+ */
+export function tipoTicketABson(tipo: TipoTicket): Document {
+  return limpiar({ ...tipo, _id: toObjectId(tipo._id) });
+}
+
+/**
+ * Una promoción embebida: los identificadores de los tipos de ticket a los que
+ * aplica son `objectId` en el documento persistido.
+ */
+export function promocionABson(promocion: Promocion): Document {
+  return limpiar({
+    ...promocion,
+    aplica_a_tipo_ticket_ids: promocion.aplica_a_tipo_ticket_ids.map((id) => toObjectId(id)),
   });
 }
 

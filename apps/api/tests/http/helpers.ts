@@ -25,6 +25,14 @@ export type ContextoPrueba = {
 export type OpcionesContexto = {
   /** Logger alternativo: los tests observan el log de acceso con uno falso. */
   logger?: Logger;
+  /**
+   * Base de datos propia del archivo de test.
+   *
+   * Cada archivo usa la suya porque Vitest corre los archivos en paralelo: si
+   * dos comparten base, el `dropDatabase` de uno borra los datos del otro y las
+   * pruebas se vuelven intermitentes.
+   */
+  nombreBase?: string;
 };
 
 /**
@@ -38,7 +46,7 @@ export async function crearContextoPrueba(
   const cliente = new MongoClient(config.MONGODB_URI, { serverSelectionTimeoutMS: 5_000 });
   await cliente.connect();
 
-  const db = cliente.db(DB_PRUEBA);
+  const db = cliente.db(opciones.nombreBase ?? DB_PRUEBA);
   await db.dropDatabase();
   await aplicarSetup(db);
 

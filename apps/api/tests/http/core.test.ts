@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import type { Logger } from "pino";
 import type { Request, Response } from "express";
+import { config } from "../../src/config.js";
 import { crearContextoPrueba, type ContextoPrueba } from "./helpers.js";
 import { manejadorErrores } from "../../src/http/middleware/errores.js";
 
@@ -11,7 +12,7 @@ import { manejadorErrores } from "../../src/http/middleware/errores.js";
 let contexto: ContextoPrueba;
 
 beforeAll(async () => {
-  contexto = await crearContextoPrueba();
+  contexto = await crearContextoPrueba({ nombreBase: `${config.MONGODB_DB}_http_core` });
 });
 
 afterAll(async () => {
@@ -86,7 +87,10 @@ describe("T4.1 · logging de acceso", () => {
   it("registra método, ruta, estado y request-id", async () => {
     const info = vi.fn();
     const logger = { info, warn: vi.fn(), error: vi.fn() } as unknown as Logger;
-    const contextoLog = await crearContextoPrueba({ logger });
+    const contextoLog = await crearContextoPrueba({
+      logger,
+      nombreBase: `${config.MONGODB_DB}_http_core_log`,
+    });
 
     try {
       await request(contextoLog.app).get("/api/health").set("x-request-id", "req-log");

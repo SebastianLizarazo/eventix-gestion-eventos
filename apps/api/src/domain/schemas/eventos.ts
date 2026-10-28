@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { slugify, normalizarCodigo } from "../normalization.js";
 import { validar } from "../validar.js";
@@ -36,82 +37,124 @@ export const restriccionesSchema = z
     }
   });
 
-export const tipoTicketSchema = z
-  .object({
-    _id: objectIdSchema,
-    nombre: z.string().trim().min(1).max(120),
-    precio_cop: z.number().int().nonnegative(),
-    aforo_total: z.number().int().nonnegative(),
-    aforo_vendido: z.number().int().nonnegative().default(0),
-    restricciones: restriccionesSchema.default({}),
-  })
-  .superRefine((tipo, ctx) => {
-    if (tipo.aforo_vendido > tipo.aforo_total) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["aforo_vendido"],
-        message: "aforo_vendido no puede superar aforo_total",
-      });
-    }
-  });
+const tipoTicketBaseSchema = z.object({
+  _id: objectIdSchema,
+  nombre: z.string().trim().min(1).max(120),
+  precio_cop: z.number().int().nonnegative(),
+  aforo_total: z.number().int().nonnegative(),
+  aforo_vendido: z.number().int().nonnegative().default(0),
+  restricciones: restriccionesSchema.default({}),
+});
 
-export const promocionSchema = z
-  .object({
-    codigo: z
-      .string()
-      .trim()
-      .min(1)
-      .max(64)
-      .regex(/^[A-Za-z0-9_-]+$/, "El código solo admite letras, dígitos, guiones y guiones bajos")
-      .transform(normalizarCodigo),
-    tipo: z.enum(TIPO_PROMOCION),
-    valor: z.number().int().positive(),
-    aplica_a_tipo_ticket_ids: z.array(objectIdSchema).default([]),
-    vigencia_inicio: dateSchema,
-    vigencia_fin: dateSchema,
-    usos_maximos: z.number().int().nonnegative().optional(),
-    usos_realizados: z.number().int().nonnegative().default(0),
-    activo: z.boolean().default(false),
-  })
-  .superRefine((promocion, ctx) => {
-    if (promocion.vigencia_fin <= promocion.vigencia_inicio) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["vigencia_fin"],
-        message: "vigencia_fin debe ser posterior a vigencia_inicio",
-      });
-    }
+/** Regla de negocio del tipo de ticket: el aforo vendido no supera el total. */
+function refinarTipoTicket(
+  tipo: { aforo_vendido: number; aforo_total: number },
+  ctx: z.RefinementCtx,
+): void {
+  if (tipo.aforo_vendido > tipo.aforo_total) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["aforo_vendido"],
+      message: "aforo_vendido no puede superar aforo_total",
+    });
+  }
+}
 
-    if (
-      promocion.usos_maximos !== undefined &&
-      promocion.usos_realizados > promocion.usos_maximos
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["usos_realizados"],
-        message: "usos_realizados no puede superar usos_maximos",
-      });
-    }
+/** Tipo de ticket persistido: siempre con identificador. */
+export const tipoTicketSchema = tipoTicketBaseSchema.superRefine(refinarTipoTicket);
 
-    if (
-      (promocion.tipo === "porcentaje" || promocion.tipo === "early_bird") &&
-      promocion.valor > 100
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["valor"],
-        message: "El descuento porcentual no puede superar 100",
-      });
-    }
+/**
+ * Tipo de ticket que acepta el cliente: su `_id` lo asigna el servidor.
+ *
+ * El identificador del tipo de ticket lo genera la API cuando lo crea, porque
+ * es el que lo referencia el ticket comprado y la promoción que lo aplica.
+ */
+export const tipoTicketInputSchema = tipoTicketBaseSchema
+  .partial({ _id: true })
+  .superRefine(refinarTipoTicket);
 
-    if (promocion.tipo === "2x1" && promocion.valor < 2) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["valor"],
-        message: "Una promoción 2x1 necesita un valor mínimo de 2",
-      });
-    }
-  });
+const promocionBaseSchema = z.object({
+  codigo: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, "El código solo admite letras, dígitos, guiones y guiones bajos")
+    .transform(normalizarCodigo),
+  tipo: z.enum(TIPO_PROMOCION),
+  valor: z.number().int().positive(),
+  aplica_a_tipo_ticket_ids: z.array(objectIdSchema).default([]),
+  vigencia_inicio: dateSchema,
+  vigencia_fin: dateSchema,
+  usos_maximos: z.number().int().nonnegative().optional(),
+  usos_realizados: z.number().int().nonnegative().default(0),
+  activo: z.boolean().default(false),
+});
+
+/** Reglas de negocio de la promoción: vigencia, límite de usos y valor por tipo. */
+function refinarPromocion(
+  promocion: {
+    tipo: (typeof TIPO_PROMOCION)[number];
+    valor: number;
+    vigencia_inicio: Date;
+    vigencia_fin: Date;
+    usos_maximos?: number;
+    usos_realizados?: number;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (promocion.vigencia_fin <= promocion.vigencia_inicio) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["vigencia_fin"],
+      message: "vigencia_fin debe ser posterior a vigencia_inicio",
+    });
+  }
+
+  if (
+    promocion.usos_maximos !== undefined &&
+    promocion.usos_realizados !== undefined &&
+    promocion.usos_realizados > promocion.usos_maximos
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["usos_realizados"],
+      message: "usos_realizados no puede superar usos_maximos",
+    });
+  }
+
+  if (
+    (promocion.tipo === "porcentaje" || promocion.tipo === "early_bird") &&
+    promocion.valor > 100
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["valor"],
+      message: "El descuento porcentual no puede superar 100",
+    });
+  }
+
+  if (promocion.tipo === "2x1" && promocion.valor < 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["valor"],
+      message: "Una promoción 2x1 necesita un valor mínimo de 2",
+    });
+  }
+}
+
+/** Promoción persistida: con el contador de usos que lleva el sistema. */
+export const promocionSchema = promocionBaseSchema.superRefine(refinarPromocion);
+
+/**
+ * Promoción que acepta el cliente: sin `usos_realizados`.
+ *
+ * El contador de usos lo lleva el sistema (lo incrementa el flujo de compra),
+ * así que un cliente no puede escribirlo.
+ */
+export const promocionInputSchema = promocionBaseSchema
+  .omit({ usos_realizados: true })
+  .superRefine(refinarPromocion);
 
 export const brandingSchema = z.object({
   color_primario: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color hexadecimal inválido"),
@@ -257,6 +300,24 @@ export type Evento = z.output<typeof eventoSchema>;
 export type EventoInput = z.input<typeof eventoInputSchema>;
 export type TipoTicket = z.output<typeof tipoTicketSchema>;
 export type Promocion = z.output<typeof promocionSchema>;
+
+/** Prepara un tipo de ticket para persistir: le asigna el identificador. */
+export function prepararTipoTicket(input: unknown): TipoTicket {
+  const base = validar(tipoTicketInputSchema, input, "tipo de ticket");
+
+  return validar(
+    tipoTicketSchema,
+    { ...base, _id: base._id ?? new ObjectId().toHexString() },
+    "tipo de ticket",
+  );
+}
+
+/** Prepara una promoción para persistir: arranca con el contador de usos en cero. */
+export function prepararPromocion(input: unknown): Promocion {
+  const base = validar(promocionInputSchema, input, "promoción");
+
+  return validar(promocionSchema, { ...base, usos_realizados: 0 }, "promoción");
+}
 
 /** Prepara un evento para persistir: deriva el slug, las métricas y las marcas de tiempo. */
 export function prepararEvento(input: unknown, ahora: Date = new Date()): Evento {
