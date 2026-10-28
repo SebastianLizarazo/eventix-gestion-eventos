@@ -18,6 +18,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "db:setup": "pnpm --filter @eventix/api db:setup",
     "mongo:up": "node scripts/mongo-up.mjs",
     "mongo:down": "node scripts/mongo-down.mjs",
     "mongo:logs": "docker compose logs -f mongo"
