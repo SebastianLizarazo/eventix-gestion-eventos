@@ -1,6 +1,6 @@
 import { logger } from "../logger.js";
 import { connectMongo } from "./mongo.js";
-import { aplicarValidadores } from "./setup.js";
+import { aplicarSetup } from "./setup.js";
 
 /**
  * CLI de provisioning del esquema: `pnpm db:setup`.
@@ -12,15 +12,18 @@ async function main(): Promise<void> {
   const { client, db } = await connectMongo();
 
   try {
-    const resultado = await aplicarValidadores(db);
+    const resultado = await aplicarSetup(db);
 
     logger.info(
       {
         db: db.databaseName,
-        creadas: resultado.coleccionesCreadas,
-        actualizadas: resultado.coleccionesActualizadas,
+        coleccionesCreadas: resultado.validadores.coleccionesCreadas,
+        coleccionesActualizadas: resultado.validadores.coleccionesActualizadas,
+        indicesCreados: resultado.indices.creados.length,
+        indicesConservados: resultado.indices.conservados.length,
+        indicesRecreados: resultado.indices.recreados,
       },
-      "Esquema listo: validadores aplicados",
+      "Esquema listo: validadores e índices aplicados",
     );
   } finally {
     await client.close();
