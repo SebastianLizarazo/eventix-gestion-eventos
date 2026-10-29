@@ -5,6 +5,7 @@ import {
   type Transaccion,
 } from "../domain/schemas/index.js";
 import { crearGenerador } from "./aleatorio.js";
+import type { DocumentoConId } from "../db/mapeo.js";
 import {
   datosTransaccion,
   datosUsuario,
@@ -28,8 +29,13 @@ import {
 
 const SEGUNDOS_POR_HORA = 3_600_000;
 
+/** Los documentos del seed siempre llevan identificador: lo deriva la semilla. */
+function conId<TDominio extends { _id?: string }>(documento: TDominio): DocumentoConId<TDominio> {
+  return documento as DocumentoConId<TDominio>;
+}
+
 /** Genera los tickets del dataset. */
-export function* generarTickets(plan: Plan): Generator<Ticket> {
+export function* generarTickets(plan: Plan): Generator<DocumentoConId<Ticket>> {
   for (const evento of plan.eventos) {
     const generador = crearGenerador(plan.semilla, "tickets", evento.indice);
 
@@ -42,32 +48,34 @@ export function* generarTickets(plan: Plan): Generator<Ticket> {
         throw new Error(`El evento ${evento.slug} no tiene el tipo de ticket ${decision.tipo}`);
       }
 
-      yield ticketSchema.parse({
-        _id: idTicket(plan.semilla, decision.global),
-        codigo_qr: `EVX-${String(decision.global).padStart(9, "0")}`,
-        estado: decision.estado_ticket,
-        evento_id: evento.id,
-        comprado_por_usuario_id: usuario.id,
-        snapshot_tipo_ticket: {
-          tipo_ticket_id: tipo.id,
-          nombre: tipo.nombre,
-          precio_cop: tipo.precio_cop,
-        },
-        asistente_snapshot: {
-          usuario_id: usuario.id,
-          nombre: usuario.nombre,
-          documento_identidad: usuario.documento_identidad,
-          email: usuario.email,
-        },
-        precio_pagado_cop: decision.precio_pagado,
-        promocion_aplicada_codigo: decision.promocion?.codigo,
-        transaccion_id: idTransaccion(plan.semilla, decision.global),
-        emitido_en: decision.emitido_en,
-        validado_en: decision.validado_en,
-        validado_por_puerta: decision.validado_por_puerta,
-        revalidaciones: decision.revalidaciones,
-        _v: 0,
-      });
+      yield conId(
+        ticketSchema.parse({
+          _id: idTicket(plan.semilla, decision.global),
+          codigo_qr: `EVX-${String(decision.global).padStart(9, "0")}`,
+          estado: decision.estado_ticket,
+          evento_id: evento.id,
+          comprado_por_usuario_id: usuario.id,
+          snapshot_tipo_ticket: {
+            tipo_ticket_id: tipo.id,
+            nombre: tipo.nombre,
+            precio_cop: tipo.precio_cop,
+          },
+          asistente_snapshot: {
+            usuario_id: usuario.id,
+            nombre: usuario.nombre,
+            documento_identidad: usuario.documento_identidad,
+            email: usuario.email,
+          },
+          precio_pagado_cop: decision.precio_pagado,
+          promocion_aplicada_codigo: decision.promocion?.codigo,
+          transaccion_id: idTransaccion(plan.semilla, decision.global),
+          emitido_en: decision.emitido_en,
+          validado_en: decision.validado_en,
+          validado_por_puerta: decision.validado_por_puerta,
+          revalidaciones: decision.revalidaciones,
+          _v: 0,
+        }),
+      );
     }
   }
 }
@@ -76,7 +84,7 @@ export function* generarTickets(plan: Plan): Generator<Ticket> {
  * Genera las transacciones del dataset: una por ticket, con el mismo estado
  * que el ticket que la originó (una compra rechazada no deja ticket válido).
  */
-export function* generarTransacciones(plan: Plan): Generator<Transaccion> {
+export function* generarTransacciones(plan: Plan): Generator<DocumentoConId<Transaccion>> {
   for (const evento of plan.eventos) {
     const generador = crearGenerador(plan.semilla, "tickets", evento.indice);
 
@@ -85,22 +93,24 @@ export function* generarTransacciones(plan: Plan): Generator<Transaccion> {
       const usuario = datosUsuario(plan.semilla, decision.usuario, plan.nOrganizadores);
       const datos = datosTransaccion(plan.semilla, decision);
 
-      yield transaccionSchema.parse({
-        _id: idTransaccion(plan.semilla, decision.global),
-        usuario_id: usuario.id,
-        ticket_id: idTicket(plan.semilla, decision.global),
-        monto_cop: decision.monto,
-        moneda: "COP",
-        metodo_pago: datos.metodo_pago,
-        pasarela: datos.pasarela,
-        estado: decision.estado_transaccion,
-        referencia_pasarela: datos.referencia_pasarela,
-        creada_en: decision.emitido_en,
-        confirmada_en:
-          decision.estado_transaccion === "pendiente"
-            ? undefined
-            : new Date(decision.emitido_en.getTime() + SEGUNDOS_POR_HORA),
-      });
+      yield conId(
+        transaccionSchema.parse({
+          _id: idTransaccion(plan.semilla, decision.global),
+          usuario_id: usuario.id,
+          ticket_id: idTicket(plan.semilla, decision.global),
+          monto_cop: decision.monto,
+          moneda: "COP",
+          metodo_pago: datos.metodo_pago,
+          pasarela: datos.pasarela,
+          estado: decision.estado_transaccion,
+          referencia_pasarela: datos.referencia_pasarela,
+          creada_en: decision.emitido_en,
+          confirmada_en:
+            decision.estado_transaccion === "pendiente"
+              ? undefined
+              : new Date(decision.emitido_en.getTime() + SEGUNDOS_POR_HORA),
+        }),
+      );
     }
   }
 }

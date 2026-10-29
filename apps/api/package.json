@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:setup": "tsx src/db/setup-cli.ts",
+    "seed": "tsx src/seed/seed-cli.ts",
     "mongo:init": "node scripts/mongo-replica-init.mjs"
   },
   "dependencies": {

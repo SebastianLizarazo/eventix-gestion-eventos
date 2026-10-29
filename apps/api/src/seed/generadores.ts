@@ -25,34 +25,45 @@ import type { DocumentoConId } from "../db/mapeo.js";
  * duplicar esas reglas fuera de su sitio.
  */
 
+/**
+ * Los documentos del seed **siempre** llevan identificador: el generador lo
+ * deriva de la semilla, así que el tipo lo dice y no hay que comprobarlo en
+ * cada uso.
+ */
+function conId<TDominio extends { _id?: string }>(documento: TDominio): DocumentoConId<TDominio> {
+  return documento as DocumentoConId<TDominio>;
+}
+
 /** Fecha base de creación: fija, para que el dataset sea reproducible. */
 const FECHA_CREACION_BASE = new Date("2022-06-01T00:00:00.000Z");
 
 /** Genera los lugares del dataset. */
-export function generarLugares(plan: Plan): Lugar[] {
+export function generarLugares(plan: Plan): DocumentoConId<Lugar>[] {
   return plan.lugares.map((lugar) =>
-    lugarSchema.parse({
-      ...prepararLugar(
-        {
-          nombre: lugar.nombre,
-          direccion: lugar.direccion,
-          ciudad: lugar.ciudad,
-          pais: lugar.pais,
-          capacidad_total: lugar.capacidad_total,
-          geometria: lugar.geometria,
-          salas: lugar.salas,
-          activo: lugar.activo,
-        },
-        lugar.creado_en,
-      ),
-      _id: lugar.id,
-    }),
+    conId(
+      lugarSchema.parse({
+        ...prepararLugar(
+          {
+            nombre: lugar.nombre,
+            direccion: lugar.direccion,
+            ciudad: lugar.ciudad,
+            pais: lugar.pais,
+            capacidad_total: lugar.capacidad_total,
+            geometria: lugar.geometria,
+            salas: lugar.salas,
+            activo: lugar.activo,
+          },
+          lugar.creado_en,
+        ),
+        _id: lugar.id,
+      }),
+    ),
   );
 }
 
 /** Genera los usuarios del dataset, con sus estadísticas ya contabilizadas. */
-export function generarUsuarios(plan: Plan): Usuario[] {
-  const usuarios: Usuario[] = [];
+export function generarUsuarios(plan: Plan): DocumentoConId<Usuario>[] {
+  const usuarios: DocumentoConId<Usuario>[] = [];
 
   for (let indice = 0; indice < plan.volumenes.usuarios; indice += 1) {
     const datos = datosUsuario(plan.semilla, indice, plan.nOrganizadores);
@@ -80,14 +91,14 @@ export function generarUsuarios(plan: Plan): Usuario[] {
       new Date(FECHA_CREACION_BASE.getTime() + indice * 60_000),
     );
 
-    usuarios.push(usuarioSchema.parse({ ...usuario, _id: datos.id }));
+    usuarios.push(conId(usuarioSchema.parse({ ...usuario, _id: datos.id })));
   }
 
   return usuarios;
 }
 
 /** Genera los eventos del dataset, con sus contadores ya contabilizados. */
-export function generarEventos(plan: Plan): Evento[] {
+export function generarEventos(plan: Plan): DocumentoConId<Evento>[] {
   return plan.eventos.map((evento) => {
     const creadoEn = new Date(FECHA_CREACION_BASE.getTime() + evento.indice * 3_600_000);
 
@@ -134,6 +145,6 @@ export function generarEventos(plan: Plan): Evento[] {
       creadoEn,
     );
 
-    return eventoSchema.parse({ ...preparado, _id: evento.id });
+    return conId(eventoSchema.parse({ ...preparado, _id: evento.id }));
   });
 }
