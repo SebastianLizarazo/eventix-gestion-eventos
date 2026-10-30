@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { MongoClient, type Db } from "mongodb";
 import { config } from "../../src/config.js";
 import { aplicarSetup } from "../../src/db/setup.js";
@@ -11,7 +11,14 @@ import { ESCALAS } from "../../src/seed/volumenes.js";
  *
  * La CLI se prueba como proceso, no como función: lo que el runbook promete es
  * un comando, y un comando se prueba ejecutándolo.
+ *
+ * Cada caso **arranca un proceso** (`tsx` compila el TypeScript al vuelo) y
+ * siembra la base, así que necesita más margen que el timeout por defecto de la
+ * suite: con la suite completa corriendo en paralelo, el arranque se estira y el
+ * caso se pasa por tiempo, no por un defecto del seed.
  */
+
+vi.setConfig({ testTimeout: 60_000 });
 
 const ejecutar = promisify(execFile);
 

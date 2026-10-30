@@ -51,3 +51,35 @@ export class ErrorIdInvalido extends ErrorDominio {
     this.valor = valor;
   }
 }
+
+/**
+ * Motivos por los que una compra no puede concretarse.
+ *
+ * Son **vocabulario estable**: el cliente decide con el motivo, no leyendo el
+ * mensaje. La capa HTTP los traduce a su estado cuando exista el endpoint de
+ * compra; mientras tanto son el contrato del servicio.
+ */
+export type MotivoCompra =
+  | "evento_no_encontrado"
+  | "evento_no_vendible"
+  | "tipo_ticket_no_encontrado"
+  | "venta_no_iniciada"
+  | "venta_cerrada"
+  | "usuario_no_encontrado"
+  | "promocion_no_aplica"
+  | "aforo_agotado";
+
+/**
+ * Error del flujo de compra: una regla de negocio impide concretarla.
+ *
+ * La compra se resuelve **dentro de una transacción**: cuando esta excepción
+ * sale de la transacción, no queda ticket, ni transacción, ni cupo consumido.
+ */
+export class ErrorCompra extends ErrorDominio {
+  readonly motivo: MotivoCompra;
+
+  constructor(motivo: MotivoCompra, mensaje: string) {
+    super(motivo, mensaje);
+    this.motivo = motivo;
+  }
+}

@@ -1,8 +1,10 @@
 import {
   ObjectId,
+  type ClientSession,
   type Collection,
   type Document,
   type Filter,
+  type InsertOneOptions,
   type Sort,
   type UpdateOptions,
 } from "mongodb";
@@ -34,6 +36,19 @@ export const LIMITE_POR_DEFECTO = 50;
 /** Orden de una lectura: `{ campo: 1 }` ascendente, `{ campo: -1 }` descendente. */
 export type OpcionesOrden = Record<string, 1 | -1>;
 
+/**
+ * Sesión de la transacción en curso.
+ *
+ * El flujo de compra (H6) necesita que sus lecturas y sus escrituras formen
+ * parte de la **misma** transacción de MongoDB: una lectura fuera de la
+ * transacción vería un estado que la escritura no encuentra. Por eso las
+ * operaciones del repositorio aceptan la sesión como opción opcional: fuera de
+ * una transacción behaves exactamente igual que antes.
+ */
+export type OpcionesSesion = {
+  session?: ClientSession;
+};
+
 /** Paginación y orden de una lectura. */
 export type OpcionesListado = {
   skip?: number;
@@ -47,6 +62,8 @@ export type OpcionesListado = {
    * "are not allowed in this context"), porque exigen ordenar por distancia.
    */
   total?: boolean;
+  /** Sesión de la transacción en curso (el flujo de compra). */
+  session?: ClientSession;
 };
 
 /** Página de resultados: los documentos y el total que hay detrás de la página. */
@@ -70,11 +87,25 @@ export type Repositorio<TDominio extends { _id?: string }> = {
     filtro: Filter<Document>,
     opciones?: OpcionesListado,
   ): Promise<ResultadoPaginado<TDominio>>;
-  contar(filtro: Filter<Document>): Promise<number>;
-  obtenerPorId(id: string): Promise<TDominio | null>;
-  obtenerUno(filtro: Filter<Document>): Promise<TDominio | null>;
-  insertar(documento: TDominio): Promise<string>;
+  contar(filtro: Filter<Document>, opciones?: OpcionesSesion): Promise<number>;
+  obtenerPorId(id: string, opciones?: OpcionesSesion): Promise<TDominio | null>;
+  obtenerUno(filtro: Filter<Document>, opciones?: OpcionesSesion): Promise<TDominio | null>;
+  insertar(documento: TDominio, opciones?: InsertOneOptions): Promise<string>;
   actualizarPorId(id: string, cambios: Document, opciones?: UpdateOptions): Promise<boolean>;
+  /**
+   * Actualiza los documentos que cumplen un filtro propio.
+   *
+   * Existe para las escrituras que **dependen del estado** del documento: la
+   * reserva de cupo del flujo de compra solo suma el aforo si el tipo de
+   * ticket todavía tiene cupo, y eso vive en el filtro, no en el código. Si
+   * ningún documento cumple el filtro, la operación no toca nada y devuelve
+   * `false`.
+   */
+  actualizarConFiltro(
+    filtro: Filter<Document>,
+    cambios: Document,
+    opciones?: UpdateOptions,
+  ): Promise<boolean>;
   eliminarPorId(id: string): Promise<boolean>;
 };
 
@@ -108,10 +139,13 @@ export function crearRepositorio<TDominio extends { _id?: string }>(
       const skip = Math.max(opciones?.skip ?? 0, 0);
       const limit = limitar(opciones?.limit);
       const calcularTotal = opciones?.total ?? true;
-      const total = calcularTotal ? await coleccion.countDocuments(filtro) : null;
+      const sesion = opciones?.session;
+      const total = calcularTotal
+        ? await coleccion.countDocuments(filtro, sesion ? { session: sesion } : undefined)
+        : null;
 
       const documentos = await coleccion
-        .find(filtro)
+        .find(filtro, sesion ? { session: sesion } : undefined)
         .sort((opciones?.orden ?? {}) as Sort)
         .skip(skip)
         .limit(limit)
@@ -120,30 +154,39 @@ export function crearRepositorio<TDominio extends { _id?: string }>(
       return { items: documentos.map(aDominio), total, skip, limit };
     },
 
-    async contar(filtro) {
-      return coleccion.countDocuments(filtro);
+    async contar(filtro, opciones) {
+      return coleccion.countDocuments(
+        filtro,
+        opciones?.session ? { session: opciones.session } : undefined,
+      );
     },
 
-    async obtenerPorId(id) {
-      const documento = await coleccion.findOne({ _id: toObjectId(id) });
+    async obtenerPorId(id, opciones) {
+      const documento = await coleccion.findOne(
+        { _id: toObjectId(id) },
+        opciones?.session ? { session: opciones.session } : undefined,
+      );
 
       return documento ? aDominio(documento) : null;
     },
 
-    async obtenerUno(filtro) {
-      const documento = await coleccion.findOne(filtro);
+    async obtenerUno(filtro, opciones) {
+      const documento = await coleccion.findOne(
+        filtro,
+        opciones?.session ? { session: opciones.session } : undefined,
+      );
 
       return documento ? aDominio(documento) : null;
     },
 
-    async insertar(documento) {
+    async insertar(documento, opciones) {
       const id = documento._id ? toObjectId(documento._id) : new ObjectId();
 
       // El `_id` se asigna aquí para que el conversor siempre reciba un
       // identificador: el dominio lo deja opcional porque lo genera la base.
       const conId = { ...documento, _id: id.toHexString() } as TDominio & { _id: string };
 
-      await coleccion.insertOne(aBson(conId));
+      await coleccion.insertOne(aBson(conId), opciones);
 
       return id.toHexString();
     },
@@ -160,6 +203,12 @@ export function crearRepositorio<TDominio extends { _id?: string }>(
       // `arrayFilters` permite escribir en un elemento concreto de un array
       // (`tipos_ticket.$[tipo]`) sin reescribir el array entero.
       const resultado = await coleccion.updateOne({ _id: toObjectId(id) }, cambios, opciones);
+
+      return resultado.matchedCount > 0;
+    },
+
+    async actualizarConFiltro(filtro, cambios, opciones) {
+      const resultado = await coleccion.updateOne(filtro, cambios, opciones);
 
       return resultado.matchedCount > 0;
     },
