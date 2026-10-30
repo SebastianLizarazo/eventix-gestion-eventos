@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import type { Logger } from "pino";
+import type { MongoClient } from "mongodb";
 import { createRouter } from "./http/router.js";
 import { requestId } from "./http/middleware/request-id.js";
 import { logAcceso } from "./http/middleware/logging.js";
@@ -17,6 +18,13 @@ export type DepsApp = {
   startedAt: number;
   /** Repositorios de las seis colecciones. */
   repos: Repositorios;
+  /**
+   * Cliente de MongoDB.
+   *
+   * Lo necesita la compra: su transacción multi-documento se abre sobre una
+   * sesión del cliente.
+   */
+  cliente: MongoClient;
   /** Logger estructurado. */
   logger: Logger;
 };

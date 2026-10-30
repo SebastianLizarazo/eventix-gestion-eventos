@@ -11,6 +11,7 @@ import { openapi } from "../../src/http/openapi.js";
 import { createHealthRouter } from "../../src/http/health.js";
 import { createRouter } from "../../src/http/router.js";
 import { crearRouterAuditoria } from "../../src/http/recursos/auditoria.js";
+import { crearRouterCompras } from "../../src/http/recursos/compras.js";
 import { crearRouterEventos } from "../../src/http/recursos/eventos.js";
 import { crearRouterLugares } from "../../src/http/recursos/lugares.js";
 import { crearRouterTickets } from "../../src/http/recursos/tickets.js";
@@ -34,6 +35,7 @@ const PREFIJOS = {
   tickets: "/tickets",
   transacciones: "/transacciones",
   auditoria: "/auditoria",
+  compras: "/compras",
 } as const;
 
 /** Capa del router de Express (los internos no son públicos). */
@@ -107,6 +109,7 @@ beforeAll(async () => {
     version: "test",
     startedAt: 0,
     repos: crearRepositorios(db),
+    cliente,
     logger: { info: () => {}, warn: () => {}, error: () => {} } as unknown as Logger,
   });
 });
@@ -144,6 +147,7 @@ describe("T4.4 · contrato OpenAPI 3.1", () => {
           version: "t",
           startedAt: 0,
           repos,
+          cliente,
           logger: {} as unknown as Logger,
         }),
         false,
@@ -171,6 +175,10 @@ describe("T4.4 · contrato OpenAPI 3.1", () => {
       ...rutasDe(crearRouterAuditoria(repos)).map((ruta) => ({
         ...ruta,
         ruta: `${PREFIJOS.auditoria}${ruta.ruta}`,
+      })),
+      ...rutasDe(crearRouterCompras(repos, cliente)).map((ruta) => ({
+        ...ruta,
+        ruta: `${PREFIJOS.compras}${ruta.ruta}`,
       })),
     ];
 

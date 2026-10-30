@@ -66,6 +66,7 @@ export async function crearContextoPrueba(
     version: "0.1.0-test",
     startedAt: Date.now(),
     repos,
+    cliente,
     logger: opciones.logger ?? loggerPorDefecto,
   });
 

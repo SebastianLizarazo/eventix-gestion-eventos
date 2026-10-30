@@ -198,8 +198,17 @@ async function ejecutarCompra(
   // Sin promoción no hay nada que fallar: el motivo viene vacío y el ticket se
   // paga a su precio. Con una promoción pedida que no se puede aplicar, la
   // compra **falla**: no se cobra el precio completo en silencio.
+  //
+  // El motivo del motor (`inexistente`, `inactiva`, `fuera_de_vigencia`,
+  // `usos_agotados`, `no_aplica_al_tipo`, `2x1_sin_ticket_previo`) viaja como
+  // detalle: el cliente necesita saber *por qué* no aplicó, no solo *que* no
+  // aplicó.
   if (!evaluacion.aplicada && evaluacion.motivo !== null) {
-    throw new ErrorCompra("promocion_no_aplica", evaluacion.mensaje);
+    throw new ErrorCompra("promocion_no_aplica", evaluacion.mensaje, {
+      campo: "promocion_codigo",
+      mensaje: evaluacion.mensaje,
+      codigo: evaluacion.motivo,
+    });
   }
 
   const precio = evaluacion.precio;
@@ -257,10 +266,13 @@ async function ejecutarCompra(
     );
 
     if (!usos) {
-      throw new ErrorCompra(
-        "promocion_no_aplica",
-        `La promoción ${evaluacion.promocion.codigo} ya no tiene usos disponibles`,
-      );
+      const mensaje = `La promoción ${evaluacion.promocion.codigo} ya no tiene usos disponibles`;
+
+      throw new ErrorCompra("promocion_no_aplica", mensaje, {
+        campo: "promocion_codigo",
+        mensaje,
+        codigo: "usos_agotados",
+      });
     }
   }
 

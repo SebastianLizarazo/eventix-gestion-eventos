@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createHealthRouter } from "./health.js";
 import { openapi } from "./openapi.js";
 import { crearRouterAuditoria } from "./recursos/auditoria.js";
+import { crearRouterCompras } from "./recursos/compras.js";
 import { crearRouterEventos } from "./recursos/eventos.js";
 import { crearRouterLugares } from "./recursos/lugares.js";
 import { crearRouterTickets } from "./recursos/tickets.js";
@@ -29,6 +30,8 @@ export function createRouter(deps: DepsApp): Router {
   router.use("/tickets", crearRouterTickets(repos));
   router.use("/transacciones", crearRouterTransacciones(repos));
   router.use("/auditoria", crearRouterAuditoria(repos));
+  // La compra necesita el cliente: su transacción se abre sobre una sesión.
+  router.use("/compras", crearRouterCompras(repos, deps.cliente));
 
   return router;
 }

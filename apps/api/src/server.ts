@@ -13,6 +13,7 @@ const app = createApp({
   version: "0.1.0",
   startedAt,
   repos: crearRepositorios(db),
+  cliente: client,
   logger,
 });
 

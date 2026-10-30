@@ -77,9 +77,18 @@ export type MotivoCompra =
  */
 export class ErrorCompra extends ErrorDominio {
   readonly motivo: MotivoCompra;
+  /**
+   * Detalle opcional con el motivo **más específico** del fallo.
+   *
+   * El motivo dice qué paso ("la promoción no aplica"); el detalle dice
+   * exactamente cuál ("se agotaron sus usos"). La capa HTTP lleva el detalle
+   * al cliente en `detalles[0].codigo`, que es donde el cliente decide.
+   */
+  readonly detalle?: CampoError;
 
-  constructor(motivo: MotivoCompra, mensaje: string) {
+  constructor(motivo: MotivoCompra, mensaje: string, detalle?: CampoError) {
     super(motivo, mensaje);
     this.motivo = motivo;
+    this.detalle = detalle;
   }
 }

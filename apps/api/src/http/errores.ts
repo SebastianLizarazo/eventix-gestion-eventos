@@ -1,5 +1,10 @@
 import { MongoServerError } from "mongodb";
-import { ErrorIdInvalido, ErrorValidacion } from "../domain/errors.js";
+import {
+  ErrorCompra,
+  ErrorIdInvalido,
+  ErrorValidacion,
+  type MotivoCompra,
+} from "../domain/errors.js";
 
 /**
  * Contrato de error de la API: **un solo formato** para todos los fallos.
@@ -87,6 +92,29 @@ export type TraduccionError = {
   cuerpo: CuerpoError;
 };
 
+/**
+ * Familia y campo de cada motivo de compra.
+ *
+ * El `error.codigo` dice **la familia** (404/409/422) y el motivo exacto
+ * viaja en `detalles[0].codigo`: así el cliente distingue `aforo_agotado` de
+ * `evento_no_vendible` —los dos son 409— sin leer el mensaje.
+ *
+ * - *no existe* → 404 `no_encontrado` (falta el recurso);
+ * - *existe pero su estado no permite la compra* → 409 `conflicto`;
+ * - *la petición pide algo que no es válido* → 422 `validacion`.
+ */
+const MOTIVO_COMPRA: Record<MotivoCompra, { estado: number; codigo: CodigoError; campo: string }> =
+  {
+    evento_no_encontrado: { estado: 404, codigo: "no_encontrado", campo: "evento_id" },
+    tipo_ticket_no_encontrado: { estado: 404, codigo: "no_encontrado", campo: "tipo_ticket_id" },
+    usuario_no_encontrado: { estado: 404, codigo: "no_encontrado", campo: "usuario_id" },
+    evento_no_vendible: { estado: 409, codigo: "conflicto", campo: "estado" },
+    venta_no_iniciada: { estado: 409, codigo: "conflicto", campo: "venta_inicio" },
+    venta_cerrada: { estado: 409, codigo: "conflicto", campo: "venta_fin" },
+    aforo_agotado: { estado: 409, codigo: "conflicto", campo: "aforo_total" },
+    promocion_no_aplica: { estado: 422, codigo: "validacion", campo: "promocion_codigo" },
+  };
+
 /** Construye el cuerpo de error con el formato único. */
 function construir(
   codigo: CodigoError,
@@ -152,6 +180,22 @@ export function traducirError(error: unknown, requestId: string): TraduccionErro
     return {
       estado: 400,
       cuerpo: construir("peticion_invalida", "Identificador inválido", requestId),
+    };
+  }
+
+  if (error instanceof ErrorCompra) {
+    const familia = MOTIVO_COMPRA[error.motivo];
+    // El detalle del error es el motivo más específico que se conoce (el del
+    // motor de promociones, si viene); si no, el propio motivo de la compra.
+    const detalle = error.detalle ?? {
+      campo: familia.campo,
+      mensaje: error.message,
+      codigo: error.motivo,
+    };
+
+    return {
+      estado: familia.estado,
+      cuerpo: construir(familia.codigo, error.message, requestId, [detalle]),
     };
   }
 

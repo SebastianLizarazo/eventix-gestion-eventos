@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
+import type { MongoClient } from "mongodb";
 import { createApp } from "../src/app.js";
 import type { Repositorios } from "../src/db/repos/index.js";
 import { logger } from "../src/logger.js";
@@ -12,6 +13,9 @@ function buildApp(mongoUp: boolean) {
     // El healthcheck no toca los repositorios: la API los exige siempre, pero
     // esta ruta solo necesita saber si MongoDB responde.
     repos: {} as Repositorios,
+    // El cliente solo se usa al comprar (para abrir la sesión de la
+    // transacción), y el healthcheck no compra nada.
+    cliente: {} as MongoClient,
     logger,
   });
 }

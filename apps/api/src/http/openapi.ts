@@ -3,6 +3,7 @@ import type { ZodTypeAny } from "zod";
 import {
   auditoriaInputSchema,
   auditoriaSchema,
+  entradaCompraSchema,
   eventoInputSchema,
   eventoSchema,
   lugarInputSchema,
@@ -33,7 +34,7 @@ export const VERSION_OPENAPI = "3.1.0";
 /** Parámetro de una operación. */
 type Parametro = {
   nombre: string;
-  en: "path" | "query";
+  en: "path" | "query" | "header";
   descripcion: string;
   required?: boolean;
   esquema?: Record<string, unknown>;
@@ -585,6 +586,27 @@ const RUTAS: Record<string, Record<string, Operacion>> = {
     [idParam("id", "Identificador")],
     true,
   ),
+  "/compras": {
+    post: {
+      summary: "Compra un ticket",
+      tags: ["compras"],
+      parameters: [
+        {
+          nombre: "Idempotency-Key",
+          en: "header",
+          descripcion:
+            "Clave de idempotencia de la compra. Opcional; si viene, tiene que coincidir con `referencia_pasarela` del cuerpo.",
+          required: false,
+        },
+      ],
+      requestBody: cuerpoDe("CompraEntrada"),
+      responses: {
+        "200": respuestaDe("Compra", "La compra ya existía (misma clave de idempotencia)"),
+        "201": respuestaDe("Compra", "Ticket comprado"),
+        ...ERRORES,
+      },
+    },
+  },
 };
 
 /**
@@ -600,6 +622,7 @@ const ESQUEMAS_ENTRADA: Record<string, Record<string, unknown>> = {
   TicketEntrada: esquemaDe(ticketInputSchema),
   TransaccionEntrada: esquemaDe(transaccionInputSchema),
   AuditoriaEntrada: esquemaDe(auditoriaInputSchema),
+  CompraEntrada: esquemaDe(entradaCompraSchema),
 };
 
 /** Componentes del contrato. */
@@ -623,6 +646,16 @@ const COMPONENTES = {
     },
     TipoTicket: esquemaDeTipoTicket(),
     Promocion: esquemaDePromocion(),
+    Compra: {
+      type: "object",
+      required: ["ticket", "transaccion", "idempotente", "promocion_codigo"],
+      properties: {
+        ticket: { $ref: "#/components/schemas/Ticket" },
+        transaccion: { $ref: "#/components/schemas/Transaccion" },
+        idempotente: { type: "boolean" },
+        promocion_codigo: { type: ["string", "null"] },
+      },
+    },
   },
 };
 
