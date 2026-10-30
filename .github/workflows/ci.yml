@@ -37,6 +37,12 @@ jobs:
           node-version: "22"
           cache: pnpm
 
+      # Guardián de codificación: en Windows, un archivo escrito desde la consola
+      # con PowerShell 5.1 queda doblemente codificado. Este paso corta el CI
+      # antes de que ese archivo llegue al repositorio.
+      - name: Codificación UTF-8
+        run: pnpm check:utf8
+
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
