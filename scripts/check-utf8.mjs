@@ -53,16 +53,31 @@ const EXTENSIONES = new Set([
 ]);
 
 /**
- * Traces that give away double encoded text: an accented latin letter that
- * went through Latin-1 ("A-tilde + o with acute" is an accented "o",
- * "a-circumflex + euro" is a quote, "i-diaeresis + question marks" is a BOM).
+ * Traces that give away double encoded text.
+ *
+ * The shape of the corruption is: the first byte of a UTF-8 sequence read as
+ * Latin-1 (or Windows-1252), followed by its continuation bytes. For the
+ * Western European text of this repository the possible leading characters are
+ * very few:
+ *
+ *   "A-tilde"  (C3) -> a, e, i, o, u, n with tilde
+ *   "A-circumflex" (C2) -> inverted exclamation and question, guillemets
+ *   "a-circumflex" (E2) -> euro, em dash, curly quotes
+ *   "i-diaeresis" (EF) -> BOM and other characters of the U+F000..U+FFFF range
+ *   "d-eth"     (F0) -> emoji (four byte sequences)
+ *
+ * The leading character has to be from that short list, and the second one has
+ * to be a continuation byte (U+0080..U+00BF) or one of the characters that
+ * Windows-1252 puts in the 0x80..0x9F range. A wider rule flags perfectly
+ * correct text: "a-acute" followed by "e-acute" looks exactly like the
+ * corruption, and it is not.
  */
 const RASTROS = [
   {
     nombre: "acentos latin-1",
-    patron: /[\u00C2-\u00C5\u00E0-\u00E5][\u0080-\u00FF\u20AC\u2122\u2018-\u201F\u2126]/gu,
+    patron:
+      /[\u00C2\u00C3\u00E2\u00EF\u00F0][\u0080-\u00BF\u20AC\u2122\u2018-\u201F\u2126\u0152\u0153\u0160\u017D\u017E\u0192]/gu,
   },
-  { nombre: "emoji rotos", patron: /\u00F0[\u0080-\u00FF]/gu },
   { nombre: "BOM como texto", patron: /\u00EF\u00BB\u00BF/gu },
 ];
 
@@ -178,4 +193,15 @@ for (const problema of problemas) {
 console.error(
   `\n[eventix] ${problemas.length} file(s) with badly encoded text.${corregir ? "" : " Run `pnpm check:utf8 -- --fix` to repair them."}`,
 );
+
+// Con --fix se sale con 0 si todo quedo reparado: el comando cumplio su
+// objetivo. Sin --fix se sale con 1, que es lo que un pipeline necesita para
+// cortar el build.
+const sinReparar = problemas.filter((problema) => !problema.reparado);
+
+if (corregir && sinReparar.length === 0) {
+  console.log(`[eventix] ${problemas.length} file(s) repaired.`);
+  process.exit(0);
+}
+
 process.exit(1);
