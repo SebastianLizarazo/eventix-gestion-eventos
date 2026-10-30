@@ -3,7 +3,7 @@ import type { Express } from "express";
 import type { Logger } from "pino";
 import { config } from "../../src/config.js";
 import { aplicarSetup } from "../../src/db/setup.js";
-import { crearRepositorios } from "../../src/db/repos/index.js";
+import { crearRepositorios, type Repositorios } from "../../src/db/repos/index.js";
 import { createApp } from "../../src/app.js";
 import { logger as loggerPorDefecto } from "../../src/logger.js";
 
@@ -33,6 +33,14 @@ export type OpcionesContexto = {
    * pruebas se vuelven intermitentes.
    */
   nombreBase?: string;
+  /**
+   * Envoltura de los repositorios.
+   *
+   * Permite probar **carreras** de forma determinista: un doble que devuelve
+   * una lectura vieja simula, sin Cronos, que otra escritura ocurrió entre la
+   * lectura de la petición y su escritura.
+   */
+  envolverRepos?: (repos: Repositorios) => Repositorios;
 };
 
 /**
@@ -50,7 +58,8 @@ export async function crearContextoPrueba(
   await db.dropDatabase();
   await aplicarSetup(db);
 
-  const repos = crearRepositorios(db);
+  const reposBase = crearRepositorios(db);
+  const repos = opciones.envolverRepos ? opciones.envolverRepos(reposBase) : reposBase;
 
   const app = createApp({
     checkMongo: async () => true,

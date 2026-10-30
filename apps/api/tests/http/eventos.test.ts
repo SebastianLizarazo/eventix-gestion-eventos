@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
+import { ObjectId, type Document } from "mongodb";
 import { config } from "../../src/config.js";
 import { crearContextoPrueba, type ContextoPrueba } from "./helpers.js";
 import { IDS } from "../domain/fixtures.js";
@@ -67,6 +68,32 @@ async function crearEvento(
   expect(response.status).toBe(201);
 
   return response.body;
+}
+
+/**
+ * Simula una venta: el sistema suma el aforo vendido del tipo, con la misma
+ * escritura que hace el flujo de compra.
+ */
+async function vender(
+  contexto: ContextoPrueba,
+  eventoId: string,
+  tipoId: string,
+  cantidad: number,
+): Promise<void> {
+  await contexto.db
+    .collection("eventos")
+    .updateOne(
+      { _id: new ObjectId(eventoId) },
+      { $inc: { "tipos_ticket.$[tipo].aforo_vendido": cantidad } },
+      { arrayFilters: [{ "tipo._id": new ObjectId(tipoId) }] },
+    );
+}
+
+/** Lee el evento persistido, sin pasar por los dobles de las pruebas. */
+async function leerEvento(contexto: ContextoPrueba, eventoId: string): Promise<Document> {
+  const evento = await contexto.db.collection("eventos").findOne({ _id: new ObjectId(eventoId) });
+
+  return evento ?? {};
 }
 
 describe("T4.2 · alta de eventos", () => {
@@ -353,5 +380,177 @@ describe("T4.2 · promociones del evento", () => {
       `/api/eventos/${evento._id as string}/promociones`,
     );
     expect(consulta.body).toHaveLength(0);
+  });
+});
+
+/**
+ * Los contadores que el sistema posee (H6): una edición del evento **no** puede
+ * reescribirlos.
+ *
+ * `aforo_vendido` y `usos_realizados` los lleva el flujo de compra. Si una
+ * edición reescribiera el elemento embebido entero con el valor que leyó, una
+ * venta concurrente se perdería: el contador volvería a su valor viejo y los
+ * contadores del evento se desalinearían de los tickets reales.
+ *
+ * La carrera se reproduce con un **doble**: la lectura del evento devuelve el
+ * estado viejo (como si la venta se hubiera confirmado después de leer y antes
+ * de escribir). Las aserciones leen la base directamente, porque el doble
+ * también falsearía la lectura final.
+ */
+describe("H6 · las ediciones no tocan los contadores del sistema", () => {
+  let carrera: ContextoPrueba;
+
+  beforeAll(async () => {
+    carrera = await crearContextoPrueba({
+      nombreBase: `${config.MONGODB_DB}_http_eventos_carrera`,
+      envolverRepos: (repos) => ({
+        ...repos,
+        eventos: {
+          ...repos.eventos,
+          obtenerPorId: async (id: string) => {
+            const evento = await repos.eventos.obtenerPorId(id);
+
+            if (!evento) {
+              return evento;
+            }
+
+            return {
+              ...evento,
+              tipos_ticket: evento.tipos_ticket.map((tipo) => ({ ...tipo, aforo_vendido: 0 })),
+              promociones: evento.promociones.map((promocion) => ({
+                ...promocion,
+                usos_realizados: 0,
+              })),
+            };
+          },
+        },
+      }),
+    });
+  });
+
+  afterAll(async () => {
+    await carrera.cerrar();
+  });
+
+  beforeEach(async () => {
+    await carrera.limpiar();
+  });
+
+  it("la edición de un tipo de ticket no revierte el aforo vendido", async () => {
+    const evento = await request(carrera.app)
+      .post("/api/eventos")
+      .send(EVENTO)
+      .then((response) => response.body);
+
+    const creado = await request(carrera.app)
+      .post(`/api/eventos/${evento._id as string}/tipos-ticket`)
+      .send(TIPO_TICKET);
+
+    const tipoId = creado.body._id as string;
+
+    // Una venta: el sistema suma el aforo vendido del tipo (así lo hace el
+    // flujo de compra).
+    await vender(carrera, evento._id as string, tipoId, 1);
+
+    const response = await request(carrera.app)
+      .patch(`/api/eventos/${evento._id as string}/tipos-ticket/${tipoId}`)
+      .send({ precio_cop: 150000 });
+
+    expect(response.status).toBe(200);
+
+    const persistido = await leerEvento(carrera, evento._id as string);
+
+    expect(persistido.tipos_ticket[0].precio_cop).toBe(150000);
+    expect(persistido.tipos_ticket[0].aforo_vendido).toBe(1);
+  });
+
+  it("la edición de una promoción no revierte los usos realizados", async () => {
+    const evento = await request(carrera.app)
+      .post("/api/eventos")
+      .send(EVENTO)
+      .then((response) => response.body);
+
+    await request(carrera.app)
+      .post(`/api/eventos/${evento._id as string}/promociones`)
+      .send(PROMOCION);
+
+    // Una venta con promoción: el sistema cuenta el uso.
+    await carrera.db
+      .collection("eventos")
+      .updateOne(
+        { _id: new ObjectId(evento._id as string) },
+        { $inc: { "promociones.$[promo].usos_realizados": 1 } },
+        { arrayFilters: [{ "promo.codigo": "EARLY2025" }] },
+      );
+
+    const response = await request(carrera.app)
+      .patch(`/api/eventos/${evento._id as string}/promociones/EARLY2025`)
+      .send({ valor: 30 });
+
+    expect(response.status).toBe(200);
+
+    const persistido = await leerEvento(carrera, evento._id as string);
+
+    expect(persistido.promociones[0].valor).toBe(30);
+    expect(persistido.promociones[0].usos_realizados).toBe(1);
+  });
+
+  it("rechaza con 409 una edición que baja el aforo total por debajo de lo vendido", async () => {
+    const evento = await request(carrera.app)
+      .post("/api/eventos")
+      .send(EVENTO)
+      .then((response) => response.body);
+
+    const creado = await request(carrera.app)
+      .post(`/api/eventos/${evento._id as string}/tipos-ticket`)
+      .send({ ...TIPO_TICKET, aforo_total: 100 });
+
+    const tipoId = creado.body._id as string;
+
+    await vender(carrera, evento._id as string, tipoId, 100);
+
+    const response = await request(carrera.app)
+      .patch(`/api/eventos/${evento._id as string}/tipos-ticket/${tipoId}`)
+      .send({ aforo_total: 50 });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.codigo).toBe("conflicto");
+
+    // El aforo total no bajó: el documento sigue siendo válido.
+    const persistido = await leerEvento(carrera, evento._id as string);
+
+    expect(persistido.tipos_ticket[0].aforo_total).toBe(100);
+    expect(persistido.tipos_ticket[0].aforo_vendido).toBe(100);
+  });
+
+  it("rechaza con 409 una edición que baja el tope de usos por debajo de los realizados", async () => {
+    const evento = await request(carrera.app)
+      .post("/api/eventos")
+      .send(EVENTO)
+      .then((response) => response.body);
+
+    await request(carrera.app)
+      .post(`/api/eventos/${evento._id as string}/promociones`)
+      .send(PROMOCION);
+
+    await carrera.db
+      .collection("eventos")
+      .updateOne(
+        { _id: new ObjectId(evento._id as string) },
+        { $inc: { "promociones.$[promo].usos_realizados": 100 } },
+        { arrayFilters: [{ "promo.codigo": "EARLY2025" }] },
+      );
+
+    const response = await request(carrera.app)
+      .patch(`/api/eventos/${evento._id as string}/promociones/EARLY2025`)
+      .send({ usos_maximos: 50 });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.codigo).toBe("conflicto");
+
+    const persistido = await leerEvento(carrera, evento._id as string);
+
+    expect(persistido.promociones[0].usos_maximos).toBe(1000);
+    expect(persistido.promociones[0].usos_realizados).toBe(100);
   });
 });

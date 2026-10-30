@@ -134,13 +134,62 @@ export function crearRouterEventos(repos: Repositorios): Router {
     const editable = camposPermitidos(leerObjeto(req.body), CAMPOS_TIPO_TICKET);
     const fusionado = validar(tipoTicketSchema, { ...tipo, ...editable }, "tipo de ticket");
 
-    await repos.eventos.actualizarPorId(
-      id,
-      { $set: { "tipos_ticket.$[tipo]": tipoTicketABson(fusionado) } },
+    if (Object.keys(editable).length === 0) {
+      throw ErrorHttp.peticionInvalida("La petición no incluye ningún campo editable");
+    }
+
+    // El cliente edita **solo** sus campos. `aforo_vendido` lo lleva el
+    // sistema (lo escribe el flujo de compra) y una edición no puede
+    // revertir un cupo ya vendido: por eso el elemento **no se reescribe
+    // entero** —se escriben los campos editables uno a uno— y así el
+    // contador sobrevive a la edición.
+    const bson = tipoTicketABson(fusionado);
+    const cambios: Document = {};
+
+    for (const campo of CAMPOS_TIPO_TICKET) {
+      if (campo in editable) {
+        cambios[`tipos_ticket.$[tipo].${campo}`] = bson[campo];
+      }
+    }
+
+    // Si la edición cambia el aforo total, la escritura **exige** que el
+    // aforo vendido actual (el de ahora, no el de la lectura) quepa en el
+    // nuevo aforo: si no, el documento quedaría con más entradas vendidas
+    // que capacidad. La condición vive en el filtro, así que es atómica: si
+    // hubo una venta mientras tanto, la edición no se aplica y el cliente
+    // recibe un 409 en vez de un documento corrupto.
+    const filtro: Filter<Document> = {
+      _id: toObjectId(id),
+      tipos_ticket: {
+        $elemMatch: {
+          _id: toObjectId(tipoId),
+          ...("aforo_total" in editable ? { aforo_vendido: { $lte: fusionado.aforo_total } } : {}),
+        },
+      },
+    };
+
+    const escrito = await repos.eventos.actualizarConFiltro(
+      filtro,
+      { $set: cambios },
       { arrayFilters: [{ "tipo._id": toObjectId(tipoId) }] },
     );
 
-    res.status(200).json(fusionado);
+    if (!escrito) {
+      throw ErrorHttp.conflicto(
+        "El evento cambió mientras se editaba: reintenta con el estado actual",
+      );
+    }
+
+    // La respuesta es el estado real del tipo después de la edición, con el
+    // aforo vendido que lleva el sistema.
+    const actualizado = await repos.eventos.obtenerPorId(id);
+    const tipoActualizado = actualizado?.tipos_ticket.find((item) => item._id === tipoId);
+
+    if (!tipoActualizado) {
+      throw ErrorHttp.noEncontrado("No existe el tipo de ticket en el evento");
+    }
+
+    res.status(200).json(tipoActualizado);
   });
 
   router.delete("/:id/tipos-ticket/:tipoId", async (req, res) => {
@@ -220,6 +269,10 @@ export function crearRouterEventos(repos: Repositorios): Router {
     const editable = camposPermitidos(leerObjeto(req.body), CAMPOS_PROMOCION);
     const fusionado = validar(promocionSchema, { ...promocion, ...editable }, "promoción");
 
+    if (Object.keys(editable).length === 0) {
+      throw ErrorHttp.peticionInvalida("La petición no incluye ningún campo editable");
+    }
+
     validar(
       eventoSchema,
       {
@@ -229,13 +282,55 @@ export function crearRouterEventos(repos: Repositorios): Router {
       "evento",
     );
 
-    await repos.eventos.actualizarPorId(
-      id,
-      { $set: { "promociones.$[promo]": promocionABson(fusionado) } },
+    // Igual que en el tipo de ticket: el cliente escribe **solo** sus campos.
+    // `usos_realizados` lo lleva el sistema (lo cuenta el flujo de compra) y
+    // una edición no puede reescribirlo con el valor de la lectura.
+    const bson = promocionABson(fusionado);
+    const cambios: Document = {};
+
+    for (const campo of CAMPOS_PROMOCION) {
+      if (campo in editable) {
+        cambios[`promociones.$[promo].${campo}`] = bson[campo];
+      }
+    }
+
+    // Si la edición cambia el tope de usos, la escritura exige que los usos
+    // realizados **de ahora** quepan en el tope nuevo: si no, el documento
+    // quedaría con más usos que los permitidos y el dominio no lo aceptaría.
+    const filtro: Filter<Document> = {
+      _id: toObjectId(id),
+      promociones: {
+        $elemMatch: {
+          codigo,
+          ...("usos_maximos" in editable && fusionado.usos_maximos !== undefined
+            ? { usos_realizados: { $lte: fusionado.usos_maximos } }
+            : {}),
+        },
+      },
+    };
+
+    const escrito = await repos.eventos.actualizarConFiltro(
+      filtro,
+      { $set: cambios },
       { arrayFilters: [{ "promo.codigo": codigo }] },
     );
 
-    res.status(200).json(fusionado);
+    if (!escrito) {
+      throw ErrorHttp.conflicto(
+        "El evento cambió mientras se editaba: reintenta con el estado actual",
+      );
+    }
+
+    const actualizado = await repos.eventos.obtenerPorId(id);
+    const promocionActualizada = actualizado?.promociones.find(
+      (item) => item.codigo === fusionado.codigo,
+    );
+
+    if (!promocionActualizada) {
+      throw ErrorHttp.noEncontrado("No existe la promoción en el evento");
+    }
+
+    res.status(200).json(promocionActualizada);
   });
 
   router.delete("/:id/promociones/:codigo", async (req, res) => {
