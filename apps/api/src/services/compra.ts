@@ -181,10 +181,13 @@ async function ejecutarCompra(
       : await repos.usuarios.obtenerPorId(entrada.asistente_id, { session });
 
   if (!asistente) {
-    throw new ErrorCompra(
-      "usuario_no_encontrado",
-      `El asistente ${entrada.asistente_id} no existe`,
-    );
+    const mensaje = `El asistente ${entrada.asistente_id} no existe`;
+
+    throw new ErrorCompra("usuario_no_encontrado", mensaje, {
+      campo: "asistente_id",
+      mensaje,
+      codigo: "usuario_no_encontrado",
+    });
   }
 
   // 5. La promoción (si la pidió el cliente).

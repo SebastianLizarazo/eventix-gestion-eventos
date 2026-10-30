@@ -222,4 +222,12 @@ describe("T4.4 · contrato OpenAPI 3.1", () => {
     expect(respuesta.body.openapi).toBe("3.1.0");
     expect(respuesta.body.paths["/eventos/{id}"]).toBeDefined();
   });
+
+  it("el contrato documenta la cabecera Location de la respuesta 201 de /compras", () => {
+    const respuesta = openapi.paths["/compras"]?.post?.responses?.["201"] as {
+      headers?: Record<string, unknown>;
+    };
+
+    expect(respuesta?.headers?.Location).toBeDefined();
+  });
 });

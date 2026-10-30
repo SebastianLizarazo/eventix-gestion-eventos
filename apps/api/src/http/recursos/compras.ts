@@ -26,11 +26,10 @@ export function crearRouterCompras(repos: Repositorios, cliente: MongoClient): R
 
   router.post("/", async (req, res) => {
     const cuerpo = leerObjeto(req.body);
-    const entrada = validar(
-      entradaCompraSchema,
-      { ...cuerpo, ...referenciaDe(req, cuerpo) },
-      "compra",
-    );
+
+    verificarReferencia(req, cuerpo);
+
+    const entrada = validar(entradaCompraSchema, cuerpo, "compra");
 
     const resultado = await compras.comprar(entrada);
 
@@ -53,33 +52,29 @@ export function crearRouterCompras(repos: Repositorios, cliente: MongoClient): R
  * cuerpo: así lo modela el dominio (`referencia_pasarela` *es* la clave) y
  * así lo protege el índice único de `transacciones`.
  *
- * La cabecera `Idempotency-Key` es **opcional** y sirve para los clientes que
- * solo saben expresar la clave en una cabecera. Si viene, tiene que coincidir
- * con la referencia del cuerpo: una petición que dice dos cosas distintas es
- * incoherente, y se rechaza con 400 (no es un conflicto de estado).
+ * La cabecera `Idempotency-Key` es **opcional** y no suplanta al cuerpo: si
+ * viene, tiene que coincidir con la referencia del cuerpo. Una cabecera que
+ * afirma una clave que el cuerpo no lleva es una petición incoherente, y se
+ * rechaza con 400 (no es un conflicto de estado).
  */
-function referenciaDe(req: Request, cuerpo: Record<string, unknown>): Record<string, unknown> {
+function verificarReferencia(req: Request, cuerpo: Record<string, unknown>): void {
   const cabecera = req.get("Idempotency-Key")?.trim();
-  const delCuerpo = cuerpo.referencia_pasarela;
 
   if (!cabecera) {
-    return {};
+    return;
   }
+
+  const delCuerpo = cuerpo.referencia_pasarela;
 
   if (delCuerpo === undefined) {
-    return { referencia_pasarela: cabecera };
+    throw ErrorHttp.peticionInvalida(
+      "La cabecera 'Idempotency-Key' exige que el cuerpo traiga 'referencia_pasarela'",
+    );
   }
 
-  if (typeof delCuerpo !== "string") {
-    // No es una referencia: que lo rechace el esquema, con su detalle por campo.
-    return {};
-  }
-
-  if (delCuerpo.trim() !== cabecera) {
+  if (typeof delCuerpo !== "string" || delCuerpo.trim() !== cabecera) {
     throw ErrorHttp.peticionInvalida(
       "La cabecera 'Idempotency-Key' no coincide con 'referencia_pasarela' del cuerpo",
     );
   }
-
-  return {};
 }

@@ -238,6 +238,33 @@ describe("T6.6 · endpoint HTTP de la compra", () => {
     expect(await ctx.db.collection("tickets").countDocuments()).toBe(0);
   });
 
+  it("rechaza con 400 la cabecera Idempotency-Key cuando el cuerpo no trae referencia_pasarela", async () => {
+    const sinReferencia = cuerpo();
+
+    delete sinReferencia.referencia_pasarela;
+
+    const respuesta = await request(ctx.app)
+      .post("/api/compras")
+      .set("Idempotency-Key", "SOLO-CABECERA")
+      .send(sinReferencia);
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe("peticion_invalida");
+    expect(await ctx.db.collection("tickets").countDocuments()).toBe(0);
+    expect(await ctx.db.collection("transacciones").countDocuments()).toBe(0);
+  });
+
+  it("el detalle de un asistente inexistente señala el asistente", async () => {
+    const respuesta = await request(ctx.app)
+      .post("/api/compras")
+      .send(cuerpo({ asistente_id: ID_INEXISTENTE }));
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error.codigo).toBe("no_encontrado");
+    expect(respuesta.body.error.detalles[0].codigo).toBe("usuario_no_encontrado");
+    expect(respuesta.body.error.detalles[0].campo).toBe("asistente_id");
+  });
+
   it.each([
     ["evento_no_encontrado", 404, "no_encontrado", () => ({ evento_id: ID_INEXISTENTE })],
     ["evento_no_vendible", 409, "conflicto", () => ({ evento_id: eventoBorradorId })],

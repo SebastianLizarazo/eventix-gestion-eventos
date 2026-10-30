@@ -49,6 +49,7 @@ type RespuestaError = {
       examples?: Record<string, { value: unknown }>;
     };
   };
+  headers?: Record<string, { description?: string; schema: Record<string, unknown> }>;
 };
 
 /** Objeto de una ruta del contrato. */
@@ -595,14 +596,22 @@ const RUTAS: Record<string, Record<string, Operacion>> = {
           nombre: "Idempotency-Key",
           en: "header",
           descripcion:
-            "Clave de idempotencia de la compra. Opcional; si viene, tiene que coincidir con `referencia_pasarela` del cuerpo.",
+            "Clave de idempotencia de la compra. Opcional; si viene, tiene que coincidir con `referencia_pasarela` del cuerpo, que es la fuente de verdad.",
           required: false,
         },
       ],
       requestBody: cuerpoDe("CompraEntrada"),
       responses: {
         "200": respuestaDe("Compra", "La compra ya existía (misma clave de idempotencia)"),
-        "201": respuestaDe("Compra", "Ticket comprado"),
+        "201": {
+          ...respuestaDe("Compra", "Ticket comprado"),
+          headers: {
+            Location: {
+              description: "Ubicación del ticket emitido",
+              schema: { type: "string" },
+            },
+          },
+        },
         ...ERRORES,
       },
     },
