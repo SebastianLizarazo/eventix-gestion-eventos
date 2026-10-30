@@ -1,5 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoClient, type Db } from "mongodb";
+import type { Logger } from "pino";
 import { config } from "../../src/config.js";
 import { aplicarSetup } from "../../src/db/setup.js";
 import { crearRepositorios, type Repositorios } from "../../src/db/repos/index.js";
@@ -84,6 +85,30 @@ async function sembrar(): Promise<void> {
           aforo_total: 1,
           aforo_vendido: 0,
           restricciones: {},
+        },
+      ],
+      promociones: [
+        {
+          codigo: "VERANO10",
+          tipo: "porcentaje",
+          valor: 10,
+          aplica_a_tipo_ticket_ids: [TIPO_GENERAL],
+          vigencia_inicio: new Date("2025-01-01T00:00:00Z"),
+          vigencia_fin: new Date("2027-12-31T23:59:59Z"),
+          usos_maximos: 100,
+          usos_realizados: 0,
+          activo: true,
+        },
+        {
+          codigo: "DOBLE",
+          tipo: "2x1",
+          valor: 2,
+          aplica_a_tipo_ticket_ids: [TIPO_GENERAL],
+          vigencia_inicio: new Date("2025-01-01T00:00:00Z"),
+          vigencia_fin: new Date("2027-12-31T23:59:59Z"),
+          usos_maximos: 100,
+          usos_realizados: 0,
+          activo: true,
         },
       ],
     }),
@@ -241,5 +266,166 @@ describe("compra de un ticket", () => {
     expect(tickets.items).toHaveLength(0);
     expect(transacciones.items).toHaveLength(0);
     expect(evento?.tipos_ticket.find((tipo) => tipo._id === TIPO_GENERAL)?.aforo_vendido).toBe(0);
+  });
+});
+
+describe("compra con promoción", () => {
+  it("aplica el descuento y suma el uso de la promoción", async () => {
+    const resultado = await servicio.comprar(await entrada({ promocion_codigo: "VERANO10" }));
+
+    expect(resultado.promocion_codigo).toBe("VERANO10");
+    expect(resultado.ticket.promocion_aplicada_codigo).toBe("VERANO10");
+    expect(resultado.ticket.precio_pagado_cop).toBe(90_000);
+    expect(resultado.transaccion.monto_cop).toBe(90_000);
+
+    const evento = await repos.eventos.obtenerPorId(eventoId);
+    const promocion = evento?.promociones.find((candidate) => candidate.codigo === "VERANO10");
+
+    expect(promocion?.usos_realizados).toBe(1);
+    expect(evento?.metricas_evento?.ingresos_cop).toBe(90_000);
+  });
+
+  it("el 2x1 deja gratis el segundo ticket del mismo tipo y del mismo comprador", async () => {
+    const primera = await servicio.comprar(await entrada({ referencia_pasarela: "REF-000000002" }));
+
+    expect(primera.ticket.precio_pagado_cop).toBe(PRECIO);
+    expect(primera.ticket.promocion_aplicada_codigo).toBeUndefined();
+
+    const segunda = await servicio.comprar(
+      await entrada({ referencia_pasarela: "REF-000000003", promocion_codigo: "DOBLE" }),
+    );
+
+    expect(segunda.ticket.precio_pagado_cop).toBe(0);
+    expect(segunda.ticket.promocion_aplicada_codigo).toBe("DOBLE");
+    expect(segunda.transaccion.monto_cop).toBe(0);
+  });
+
+  it("rechaza la compra si la promoción no está vigente", async () => {
+    await repos.eventos.actualizarPorId(eventoId, {
+      $set: {
+        "promociones.0.vigencia_inicio": new Date("2024-01-01T00:00:00Z"),
+        "promociones.0.vigencia_fin": new Date("2024-12-31T23:59:59Z"),
+      },
+    });
+
+    await expect(servicio.comprar(await entrada({ promocion_codigo: "VERANO10" }))).rejects.toThrow(
+      ErrorCompra,
+    );
+
+    const tickets = await repos.tickets.listar({});
+    const transacciones = await repos.transacciones.listar({});
+    const evento = await repos.eventos.obtenerPorId(eventoId);
+
+    expect(tickets.items).toHaveLength(0);
+    expect(transacciones.items).toHaveLength(0);
+    expect(evento?.tipos_ticket.find((tipo) => tipo._id === TIPO_GENERAL)?.aforo_vendido).toBe(0);
+  });
+
+  it("rechaza la compra si la promoción no aplica al tipo de ticket", async () => {
+    await expect(
+      servicio.comprar(await entrada({ tipo_ticket_id: TIPO_VIP, promocion_codigo: "VERANO10" })),
+    ).rejects.toThrow(ErrorCompra);
+  });
+
+  it("no cobra el precio completo en silencio cuando la promoción no se puede aplicar", async () => {
+    await expect(servicio.comprar(await entrada({ promocion_codigo: "NOEXISTE" }))).rejects.toThrow(
+      ErrorCompra,
+    );
+
+    const tickets = await repos.tickets.listar({});
+
+    expect(tickets.items).toHaveLength(0);
+  });
+});
+
+describe("idempotencia de la compra", () => {
+  it("repite la compra con la misma referencia sin volver a cobrar ni a ocupar cupo", async () => {
+    const primera = await servicio.comprar(await entrada());
+    const segunda = await servicio.comprar(await entrada());
+
+    expect(segunda.idempotente).toBe(true);
+    expect(segunda.ticket._id).toBe(primera.ticket._id);
+    expect(segunda.transaccion._id).toBe(primera.transaccion._id);
+
+    const tickets = await repos.tickets.listar({});
+    const transacciones = await repos.transacciones.listar({});
+    const evento = await repos.eventos.obtenerPorId(eventoId);
+
+    expect(tickets.items).toHaveLength(1);
+    expect(transacciones.items).toHaveLength(1);
+    expect(evento?.tipos_ticket.find((tipo) => tipo._id === TIPO_GENERAL)?.aforo_vendido).toBe(1);
+    expect(evento?.metricas_evento?.ingresos_cop).toBe(PRECIO);
+  });
+
+  it("dos compras simultáneas con la misma referencia cobran una sola vez", async () => {
+    const [primera, segunda] = await Promise.all([
+      servicio.comprar(await entrada()),
+      servicio.comprar(await entrada()),
+    ]);
+
+    const tickets = await repos.tickets.listar({});
+    const transacciones = await repos.transacciones.listar({});
+    const evento = await repos.eventos.obtenerPorId(eventoId);
+
+    expect(tickets.items).toHaveLength(1);
+    expect(transacciones.items).toHaveLength(1);
+    expect(evento?.tipos_ticket.find((tipo) => tipo._id === TIPO_GENERAL)?.aforo_vendido).toBe(1);
+    expect(evento?.metricas_evento?.ingresos_cop).toBe(PRECIO);
+
+    const identicos = primera.ticket._id === segunda.ticket._id;
+
+    expect(identicos).toBe(true);
+  });
+
+  it("el reintento no vuelve a escribir la auditoría", async () => {
+    await servicio.comprar(await entrada());
+    await servicio.comprar(await entrada());
+
+    const auditorias = await repos.auditoria.listar({});
+
+    expect(auditorias.items).toHaveLength(1);
+  });
+});
+
+describe("auditoría de la compra", () => {
+  it("registra el rastro de la compra, con su actor y su sujeto", async () => {
+    const resultado = await servicio.comprar(await entrada());
+
+    const auditorias = await repos.auditoria.listar({});
+    const registro = auditorias.items[0];
+
+    expect(auditorias.items).toHaveLength(1);
+    expect(registro?.accion).toBe("compra.ticket_emitido");
+    expect(registro?.sujeto_tipo).toBe("ticket");
+    expect(registro?.sujeto_id).toBe(resultado.ticket._id);
+    expect(registro?.actor_id).toBe(await idComprador());
+    expect(registro?.actor_rol).toBe("asistente");
+    expect(registro?.metadata.evento_id).toBe(eventoId);
+    expect(registro?.metadata.transaccion_id).toBe(resultado.transaccion._id);
+    expect(registro?.metadata.monto_cop).toBe(PRECIO);
+  });
+
+  it("la compra no se cae si la escritura de la auditoría falla", async () => {
+    const reposRotos = {
+      ...repos,
+      auditoria: {
+        ...repos.auditoria,
+        insertar: async () => {
+          throw new Error("la auditoría no se pudo escribir");
+        },
+      },
+    };
+
+    const servicioRoto = crearServicioCompra(cliente, reposRotos, {
+      logger: { error: vi.fn(), warn: vi.fn() } as unknown as Logger,
+    });
+
+    const resultado = await servicioRoto.comprar(await entrada());
+
+    expect(resultado.ticket._id).toBeDefined();
+
+    const tickets = await repos.tickets.listar({});
+
+    expect(tickets.items).toHaveLength(1);
   });
 });

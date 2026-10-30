@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { MongoServerError, ObjectId, type ClientSession, type MongoClient } from "mongodb";
+import type { Logger } from "pino";
 import { logger } from "../logger.js";
 import { toObjectId } from "../domain/ids.js";
 import { ErrorCompra } from "../domain/errors.js";
@@ -67,8 +68,15 @@ export type ServicioCompra = {
  *
  * @param cliente cliente de MongoDB (de él salen las sesiones de transacción).
  * @param repos repositorios de las seis colecciones.
+ * @param opciones logger alternativo (los tests observan el log de fallos).
  */
-export function crearServicioCompra(cliente: MongoClient, repos: Repositorios): ServicioCompra {
+export function crearServicioCompra(
+  cliente: MongoClient,
+  repos: Repositorios,
+  opciones: { logger?: Logger } = {},
+): ServicioCompra {
+  const registro = opciones.logger ?? logger;
+
   return {
     async comprar(entrada) {
       const datos = validar(entradaCompraSchema, entrada, "compra");
@@ -98,8 +106,12 @@ export function crearServicioCompra(cliente: MongoClient, repos: Repositorios): 
       } finally {
         await session.endSession();
       }
-
-      await registrarAuditoria(repos, resultado, ahora);
+      // El rastro se escribe solo cuando la compra **nueva** ocurrió: un
+      // reintento con la misma referencia no emite nada y no debe ensuciar el
+      // rastro con un segundo "ticket emitido".
+      if (!resultado.idempotente) {
+        await registrarAuditoria(repos, resultado, ahora, registro);
+      }
 
       return resultado;
     },
@@ -420,12 +432,13 @@ async function registrarAuditoria(
   repos: Repositorios,
   resultado: ResultadoCompra,
   ahora: Date,
+  registro: Logger,
 ): Promise<void> {
   const ticketId = resultado.ticket._id;
   const transaccionId = resultado.transaccion._id;
 
   if (!ticketId || !transaccionId) {
-    logger.warn("La compra no tiene identificadores: no se puede auditar");
+    registro.warn("La compra no tiene identificadores: no se puede auditar");
     return;
   }
 
@@ -453,7 +466,7 @@ async function registrarAuditoria(
 
     await repos.auditoria.insertar(auditoria);
   } catch (error) {
-    logger.error({ err: error }, "No se pudo registrar la auditoría de la compra");
+    registro.error({ err: error }, "No se pudo registrar la auditoría de la compra");
   }
 }
 
