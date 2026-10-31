@@ -235,6 +235,123 @@ describe("eventoSchema", () => {
   });
 });
 
+describe("configuracion_evento.academico", () => {
+  /** Evento de tipo académico: el único que puede traer el bloque. */
+  const EVENTO_ACADEMICO = { ...EVENTO_VALIDO, tipo_evento: "academico" as const };
+
+  /** Configuración del ejemplo con el bloque académico agregado. */
+  function conAcademico(academico: Record<string, unknown>): Record<string, unknown> {
+    return { ...EVENTO_VALIDO.configuracion_evento, academico };
+  }
+
+  it("acepta el bloque académico en un evento de tipo académico", () => {
+    const evento = eventoSchema.parse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({
+        creditos: 4,
+        certificado_url: "https://certificados.eventix.test/rock-2025.pdf",
+      }),
+    });
+
+    expect(evento.configuracion_evento.academico).toEqual({
+      creditos: 4,
+      certificado_url: "https://certificados.eventix.test/rock-2025.pdf",
+    });
+  });
+
+  it("acepta el bloque académico con los dos campos opcionales", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({}),
+    });
+
+    expect(resultado.success).toBe(true);
+  });
+
+  it("rechaza créditos negativos", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({ creditos: -1 }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza créditos decimales", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({ creditos: 2.5 }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza una URL de certificado que no empieza por http:// o https://", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({
+        certificado_url: "ftp://certificados.eventix.test/x.pdf",
+      }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza una URL de certificado vacía", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({ certificado_url: "" }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza una URL de certificado más larga de 2048 caracteres", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_ACADEMICO,
+      configuracion_evento: conAcademico({
+        certificado_url: `https://certificados.eventix.test/${"a".repeat(2100)}`,
+      }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza el bloque académico en un evento que no es de tipo académico", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_VALIDO,
+      configuracion_evento: conAcademico({ creditos: 2 }),
+    });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("el error de la regla por tipo de evento apunta al bloque académico", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_VALIDO,
+      configuracion_evento: conAcademico({ creditos: 2 }),
+    });
+
+    expect(resultado.success).toBe(false);
+
+    const issues = (resultado as { error: { issues: { path: (string | number)[] }[] } }).error
+      .issues;
+    const ruta = issues.map((issue) => issue.path.join("."));
+
+    expect(ruta).toContain("configuracion_evento.academico");
+  });
+
+  it("un evento de otro tipo sin el bloque académico sigue siendo válido", () => {
+    const resultado = eventoSchema.safeParse({
+      ...EVENTO_VALIDO,
+      tipo_evento: "corporativo",
+      configuracion_evento: EVENTO_VALIDO.configuracion_evento,
+    });
+
+    expect(resultado.success).toBe(true);
+  });
+});
+
 describe("prepararEvento", () => {
   it("deriva el slug a partir del nombre cuando no viene informado", () => {
     const evento = prepararEvento({

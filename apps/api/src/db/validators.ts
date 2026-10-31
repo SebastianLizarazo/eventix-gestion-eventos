@@ -276,6 +276,23 @@ const VALIDADOR_EVENTOS: Document = {
               url_streaming: { bsonType: "string" },
             },
           },
+          // El bloque académico (NFR-04): el servidor lo conoce para no dejar
+          // el campo fuera del esquema, pero **no** puede expresar que solo
+          // aplica a eventos de tipo `academico` (el `$jsonSchema` de MongoDB
+          // no tiene la palabra clave condicional). Esa regla vive en el
+          // dominio, que es quien la decide.
+          academico: {
+            bsonType: "object",
+            properties: {
+              creditos: { bsonType: "number", minimum: 0 },
+              certificado_url: {
+                bsonType: "string",
+                minLength: 1,
+                maxLength: 2048,
+                pattern: "^https?://",
+              },
+            },
+          },
         },
       },
       metricas_evento: {

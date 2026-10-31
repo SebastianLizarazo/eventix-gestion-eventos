@@ -16,6 +16,7 @@
     "seed": "tsx src/seed/seed-cli.ts",
     "perf:reporting": "tsx src/reporting/medir-cli.ts",
     "test:perf": "tsx src/nfr/crud-cli.ts",
+    "test:esquema": "tsx src/nfr/esquema-cli.ts",
     "mongo:init": "node scripts/mongo-replica-init.mjs"
   },
   "dependencies": {

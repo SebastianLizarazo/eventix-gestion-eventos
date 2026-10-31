@@ -197,12 +197,35 @@ export const hibridoSchema = z.object({
   url_streaming: z.string().url("URL de streaming inválida").optional(),
 });
 
+/**
+ * Configuración académica: los créditos que otorga el evento y el certificado
+ * que se emite al asistente.
+ *
+ * Son **dos campos y ni uno más**: el bloque existe para demostrar que una
+ * forma nueva puede convivir en la misma colección con las formas anteriores
+ * (NFR-04), no para modelar un catálogo de configuración académica.
+ */
+export const academicoSchema = z.object({
+  creditos: z
+    .number()
+    .int("Los créditos deben ser un número entero")
+    .nonnegative("Los créditos no pueden ser negativos")
+    .optional(),
+  certificado_url: z
+    .string()
+    .min(1, "La URL del certificado no puede estar vacía")
+    .max(2048, "La URL del certificado no puede superar los 2048 caracteres")
+    .regex(/^https?:\/\//, "La URL del certificado debe empezar por http:// o https://")
+    .optional(),
+});
+
 export const configuracionEventoSchema = z
   .object({
     plantilla_id: z.string().trim().min(1).max(64).optional(),
     branding: brandingSchema.optional(),
     encuesta_post_evento: encuestaSchema.optional(),
     hibrido: hibridoSchema.optional(),
+    academico: academicoSchema.optional(),
   })
   .superRefine((configuracion, ctx) => {
     const hibrido = configuracion.hibrido;
@@ -246,7 +269,8 @@ type EventoBase = z.output<typeof eventoBaseSchema>;
 /**
  * Reglas de negocio que el validator `$jsonSchema` del servidor no puede
  * expresar (o no debería expresar): coherencia de fechas, integridad de las
- * referencias embebidas y cardinalidad de promociones activas.
+ * referencias embebidas, cardinalidad de promociones activas y pertenencia
+ * del bloque de configuración al tipo de evento.
  */
 function refinarEvento(evento: EventoBase, ctx: z.RefinementCtx): void {
   if (evento.fecha_fin <= evento.fecha_inicio) {
@@ -254,6 +278,31 @@ function refinarEvento(evento: EventoBase, ctx: z.RefinementCtx): void {
       code: z.ZodIssueCode.custom,
       path: ["fecha_fin"],
       message: "fecha_fin debe ser posterior a fecha_inicio",
+    });
+  }
+
+  /**
+   * El bloque `academico` es **de un tipo de evento**: solo un evento de tipo
+   * `academico` puede traerlo; cualquier otro tipo lo rechaza con un error de
+   * validación por campo.
+   *
+   * La regla vive **solo en el dominio**, a propósito. El `$jsonSchema` de
+   * MongoDB no tiene la palabra clave condicional: el servidor **rechaza** un
+   * validator que use `if`/`then`/`else` («Unknown $jsonSchema keyword: if»,
+   * medido contra MongoDB 7.0.45), así que el validador del servidor no puede
+   * escribir "si `tipo_evento` no es `academico`, entonces no hay bloque
+   * `academico`". Las alternativas que sí acepta (`oneOf`, `anyOf`, `not`) solo
+   * podrían rechazar el documento entero, sin el detalle por campo que el
+   * contrato de error de la API exige (`detalles[].campo`).
+   *
+   * Además, la regla del proyecto es que **el servidor nunca es más estricto
+   * que el dominio**: la que decide es el dominio, y el servidor la acepta.
+   */
+  if (evento.configuracion_evento.academico && evento.tipo_evento !== "academico") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["configuracion_evento", "academico"],
+      message: "La configuración académica solo aplica a eventos de tipo 'academico'",
     });
   }
 
