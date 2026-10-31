@@ -29,7 +29,7 @@ compra, su reporting y la evidencia de los NFR que el avance evalúa.
 | **H4 · API** | Servidor Express 5, router, middleware de error único, `request-id`, logging de acceso, CRUD de las 6 colecciones + tipos de ticket + promociones, contrato OpenAPI 3.1 | T4.1–T4.4 |
 | **H5 · Seed** | Generador determinista de lugares, usuarios, eventos, tickets y transacciones; escala `dev`/`full`; reporte de conteos contra los volúmenes declarados | T5.1–T5.3 |
 | **H6 · Compra** | La compra como **transacción multi-documento** (evento + ticket + transacción), motor de promociones (porcentaje, 2×1, early-bird), idempotencia por cargo, auditoría post-commit | T6.1–T6.5 |
-| **H7 · Compra por HTTP y reporting** | `POST /api/compras` con su contrato OpenAPI y la traducción de los 8 motivos de error; las 4 consultas operativas del doc 01 §7.1 en `/api/reportes` | T6.6, T7.1–T7.3 |
+| **H7 · Compra por HTTP y reporting** | `POST /api/compras` con su contrato OpenAPI y la traducción de los 9 motivos de error; las 4 consultas operativas del doc 01 §7.1 en `/api/reportes` | T6.6, T7.1–T7.3 |
 | **H8 · NFR** | Los tres scripts de medición del doc 01 §4: p95 de CRUD, flexibilidad de esquema y no-doble-venta bajo carga | T8.1–T8.3 |
 | **H9 · Entrega** | Este documento, el runbook del README, la imagen de entrega con arranque en un comando y el job de CI que lo prueba | T9.1–T9.3 |
 
@@ -113,7 +113,7 @@ con `mongosh` sin entrar al contenedor.
 | `EVENTIX_PORT` | `3000` | Puerto publicado de la API |
 | `EVENTIX_MONGO_PORT` | `27018` | Puerto publicado de MongoDB |
 | `EVENTIX_SEED` | `auto` | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra |
-| `EVENTIX_SEED_SCALE` | `dev` | `dev` o `full` (el dataset completo: ~3 min y ~405 MB) |
+| `EVENTIX_SEED_SCALE` | `dev` | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
 
 Para bajar todo: `docker compose -f docker-compose.entrega.yml down` (o `down -v`
 para borrar también los datos).
