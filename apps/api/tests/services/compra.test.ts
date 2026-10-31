@@ -385,6 +385,22 @@ describe("idempotencia de la compra", () => {
 
     expect(auditorias.items).toHaveLength(1);
   });
+
+  it("no devuelve la compra de otro comprador para la misma referencia", async () => {
+    await servicio.comprar(await entrada());
+
+    await expect(
+      servicio.comprar(
+        await entrada({ usuario_id: await idAsistente(), asistente_id: await idAsistente() }),
+      ),
+    ).rejects.toMatchObject({ motivo: "compra_de_otro_comprador" });
+
+    const tickets = await repos.tickets.listar({});
+    const transacciones = await repos.transacciones.listar({});
+
+    expect(tickets.items).toHaveLength(1);
+    expect(transacciones.items).toHaveLength(1);
+  });
 });
 
 describe("auditoría de la compra", () => {

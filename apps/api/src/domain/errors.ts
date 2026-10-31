@@ -67,7 +67,8 @@ export type MotivoCompra =
   | "venta_cerrada"
   | "usuario_no_encontrado"
   | "promocion_no_aplica"
-  | "aforo_agotado";
+  | "aforo_agotado"
+  | "compra_de_otro_comprador";
 
 /**
  * Error del flujo de compra: una regla de negocio impide concretarla.

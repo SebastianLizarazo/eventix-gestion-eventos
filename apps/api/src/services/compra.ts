@@ -102,6 +102,12 @@ export function crearServicioCompra(
           throw error;
         }
 
+        // La referencia identifica **el cargo**, y un cargo pertenece a un
+        // comprador: si la compra que ya existe es de otro, la respuesta
+        // correcta no es devolver ese ticket —con su QR— sino rechazar la
+        // petición, que es incoherente (el cliente está usando una referencia
+        // que no es suya). La comprobación vive en
+        // `leerCompraPorReferencia`, que es donde una referencia se resuelve.
         resultado = existente;
       } finally {
         await session.endSession();
@@ -360,6 +366,12 @@ async function ejecutarCompra(
  * semántica del índice parcial `transacciones_pasarela_referencia_parcial`. Un
  * intento rechazado o anulado no bloquea un reintento con la misma
  * referencia.
+ *
+ * Devuelve la compra que ya existe con esa referencia, o `null` si no hay
+ * ninguna. Si la compra es de **otro** comprador, lanza `ErrorCompra`: la
+ * referencia identifica el cargo, y el cargo pertenece a un comprador, así que
+ * devolver ese ticket (con su QR) a quien no lo compró no sería una
+ * repetición sino la entrega de la compra de otro.
  */
 async function leerCompraPorReferencia(
   repos: Repositorios,
@@ -379,6 +391,13 @@ async function leerCompraPorReferencia(
 
   if (!transaccion?._id) {
     return null;
+  }
+
+  if (transaccion.usuario_id !== entrada.usuario_id) {
+    throw new ErrorCompra(
+      "compra_de_otro_comprador",
+      `La referencia ${entrada.referencia_pasarela} ya corresponde a una compra de otro comprador`,
+    );
   }
 
   const ticket = await repos.tickets.obtenerUno(

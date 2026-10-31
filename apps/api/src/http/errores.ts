@@ -113,6 +113,11 @@ const MOTIVO_COMPRA: Record<MotivoCompra, { estado: number; codigo: CodigoError;
     venta_cerrada: { estado: 409, codigo: "conflicto", campo: "venta_fin" },
     aforo_agotado: { estado: 409, codigo: "conflicto", campo: "aforo_total" },
     promocion_no_aplica: { estado: 422, codigo: "validacion", campo: "promocion_codigo" },
+    compra_de_otro_comprador: {
+      estado: 409,
+      codigo: "conflicto",
+      campo: "referencia_pasarela",
+    },
   };
 
 /** Construye el cuerpo de error con el formato único. */

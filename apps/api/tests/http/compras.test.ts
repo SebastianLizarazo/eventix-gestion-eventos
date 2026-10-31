@@ -36,6 +36,7 @@ let ctx: ContextoPrueba;
 let eventoId: string;
 let eventoBorradorId: string;
 let usuarioId: string;
+let otroUsuarioId: string;
 
 /** Siembra los datos de la suite: un comprador y dos eventos. */
 async function sembrar(): Promise<void> {
@@ -46,6 +47,17 @@ async function sembrar(): Promise<void> {
       email: EMAIL,
       nombre: "Ana Compradora",
       documento_identidad: "CC-1000001",
+      tipo_usuario: ["asistente"],
+    }),
+  );
+
+  // Un segundo comprador: sirve para comprobar qué pasa cuando otra persona
+  // presenta la referencia de una compra que ya existe.
+  otroUsuarioId = await repos.usuarios.insertar(
+    prepararUsuario({
+      email: "otro@eventix.test",
+      nombre: "Luis Otro",
+      documento_identidad: "CC-2000002",
       tipo_usuario: ["asistente"],
     }),
   );
@@ -263,6 +275,25 @@ describe("T6.6 · endpoint HTTP de la compra", () => {
     expect(respuesta.body.error.codigo).toBe("no_encontrado");
     expect(respuesta.body.error.detalles[0].codigo).toBe("usuario_no_encontrado");
     expect(respuesta.body.error.detalles[0].campo).toBe("asistente_id");
+  });
+
+  it("una referencia que ya es de otro comprador responde 409 y no devuelve su ticket", async () => {
+    const primera = await request(ctx.app).post("/api/compras").send(cuerpo());
+
+    const segunda = await request(ctx.app)
+      .post("/api/compras")
+      .send(cuerpo({ usuario_id: otroUsuarioId, asistente_id: otroUsuarioId }));
+
+    expect(primera.status).toBe(201);
+    expect(segunda.status).toBe(409);
+    expect(segunda.body.error.codigo).toBe("conflicto");
+    expect(segunda.body.error.detalles[0].codigo).toBe("compra_de_otro_comprador");
+    expect(segunda.body.error.detalles[0].campo).toBe("referencia_pasarela");
+    expect(segunda.body.ticket).toBeUndefined();
+
+    // Ni un segundo ticket, ni un segundo cargo: la referencia ya estaba usada.
+    expect(await ctx.db.collection("tickets").countDocuments()).toBe(1);
+    expect(await ctx.db.collection("transacciones").countDocuments()).toBe(1);
   });
 
   it.each([
