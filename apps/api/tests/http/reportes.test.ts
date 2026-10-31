@@ -9,6 +9,7 @@ import { createApp } from "../../src/app.js";
 import { logger as loggerPorDefecto } from "../../src/logger.js";
 import {
   prepararEvento,
+  prepararTicket,
   prepararTransaccion,
   prepararUsuario,
 } from "../../src/domain/schemas/index.js";
@@ -244,6 +245,141 @@ async function sembrar(): Promise<void> {
   // Una pendiente: no tiene fecha de confirmación, así que no pertenece a
   // ningún día del cierre.
   await crearTransaccion(repos, { estado: "pendiente", monto_cop: 10_000 });
+
+  await sembrarEventosDelRanking(repos);
+  await sembrarTickets(repos);
+}
+
+/**
+ * Eventos para el ranking: uno con más ventas que el principal, uno cancelado
+ * y uno en borrador.
+ *
+ * El cancelado y el borrador **no** deben aparecer en el ranking: no son
+ * eventos operativos, y el cancelado además es el que más "vendió", así que
+ * si el filtro fallara se vería enseguida.
+ */
+async function sembrarEventosDelRanking(repos: Repositorios): Promise<void> {
+  await repos.eventos.insertar(
+    prepararEvento({
+      nombre: "Festival de verano",
+      tipo_evento: "masivo",
+      descripcion: "El que más vendió",
+      estado: "publicado",
+      visibilidad: "publico",
+      fecha_inicio: new Date("2026-02-01T16:00:00Z"),
+      fecha_fin: new Date("2026-02-01T23:00:00Z"),
+      organizador_id: ORGANIZADOR,
+      lugar_id: LUGAR,
+      tipos_ticket: [
+        {
+          _id: "66c200000000000000000020",
+          nombre: "General",
+          precio_cop: 75_000,
+          aforo_total: 200,
+          aforo_vendido: 120,
+          restricciones: {},
+        },
+      ],
+      metricas_evento: { tickets_vendidos_total: 120, ingresos_cop: 9_000_000 },
+    }),
+  );
+
+  await repos.eventos.insertar(
+    prepararEvento({
+      nombre: "Evento cancelado",
+      tipo_evento: "corporativo",
+      descripcion: "Cancelado: no va al ranking",
+      estado: "cancelado",
+      visibilidad: "publico",
+      fecha_inicio: new Date("2026-03-01T16:00:00Z"),
+      fecha_fin: new Date("2026-03-01T23:00:00Z"),
+      organizador_id: ORGANIZADOR,
+      lugar_id: LUGAR,
+      tipos_ticket: [
+        {
+          _id: "66c200000000000000000021",
+          nombre: "General",
+          precio_cop: 50_000,
+          aforo_total: 500,
+          aforo_vendido: 300,
+          restricciones: {},
+        },
+      ],
+      metricas_evento: { tickets_vendidos_total: 300, ingresos_cop: 15_000_000 },
+    }),
+  );
+
+  await repos.eventos.insertar(
+    prepararEvento({
+      nombre: "Evento en borrador",
+      tipo_evento: "academico",
+      descripcion: "Borrador: no va al ranking",
+      estado: "borrador",
+      visibilidad: "privado",
+      fecha_inicio: new Date("2026-04-01T16:00:00Z"),
+      fecha_fin: new Date("2026-04-01T23:00:00Z"),
+      organizador_id: ORGANIZADOR,
+      lugar_id: LUGAR,
+      tipos_ticket: [],
+      metricas_evento: { tickets_vendidos_total: 0, ingresos_cop: 0 },
+    }),
+  );
+}
+
+/** Tickets del evento principal: dos emitidos y uno usado. */
+async function sembrarTickets(repos: Repositorios): Promise<void> {
+  const asistentes = [
+    {
+      codigo_qr: "QR-EMITIDO-1",
+      estado: "emitido" as const,
+      nombre: "Ana Asistente",
+      documento_identidad: "CC-1000001",
+      precio_pagado_cop: 100_000,
+      emitido_en: new Date(`${DIA_UNO}T10:00:00Z`),
+    },
+    {
+      codigo_qr: "QR-EMITIDO-2",
+      estado: "emitido" as const,
+      nombre: "LuisOtro",
+      documento_identidad: "CC-2000002",
+      precio_pagado_cop: 100_000,
+      emitido_en: new Date(`${DIA_UNO}T11:00:00Z`),
+    },
+    {
+      codigo_qr: "QR-USADO-1",
+      estado: "usado" as const,
+      nombre: "Marta Usada",
+      documento_identidad: "CC-3000003",
+      precio_pagado_cop: 250_000,
+      emitido_en: new Date(`${DIA_UNO}T12:00:00Z`),
+    },
+  ];
+
+  for (const asistente of asistentes) {
+    await repos.tickets.insertar(
+      prepararTicket(
+        {
+          codigo_qr: asistente.codigo_qr,
+          estado: asistente.estado,
+          evento_id: eventoId,
+          comprado_por_usuario_id: usuarioId,
+          snapshot_tipo_ticket: {
+            tipo_ticket_id: TIPO_GENERAL,
+            nombre: "General",
+            precio_cop: 100_000,
+          },
+          asistente_snapshot: {
+            usuario_id: usuarioId,
+            nombre: asistente.nombre,
+            documento_identidad: asistente.documento_identidad,
+            email: EMAIL,
+          },
+          precio_pagado_cop: asistente.precio_pagado_cop,
+        },
+        asistente.emitido_en,
+      ),
+    );
+  }
 }
 
 beforeAll(async () => {
@@ -390,6 +526,133 @@ describe("T7.1 · cierre contable diario", () => {
     const respuesta = await request(ctx.app)
       .get("/api/reportes/cierre-contable")
       .query({ desde: `${DIA_DOS}T00:00:00Z`, hasta: `${DIA_UNO}T00:00:00Z` });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe("peticion_invalida");
+  });
+});
+
+describe("T7.2 · ranking de vendidos", () => {
+  it("ordena por tickets vendidos y trae la ocupación por tipo de ticket", async () => {
+    const respuesta = await request(ctx.app).get("/api/reportes/mas-vendidos");
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.items).toHaveLength(2);
+    expect(respuesta.body.items[0].nombre).toBe("Festival de verano");
+    expect(respuesta.body.items[0].tickets_vendidos_total).toBe(120);
+    expect(respuesta.body.items[0].ingresos_cop).toBe(9_000_000);
+    expect(respuesta.body.items[0].aforo_total).toBe(200);
+    expect(respuesta.body.items[0].aforo_vendido).toBe(120);
+    expect(respuesta.body.items[0].ocupacion_pct).toBe(60);
+    expect(respuesta.body.items[0].tipos_ticket).toEqual([
+      {
+        tipo_ticket_id: "66c200000000000000000020",
+        nombre: "General",
+        precio_cop: 75_000,
+        aforo_total: 200,
+        aforo_vendido: 120,
+        ocupacion_pct: 60,
+      },
+    ]);
+
+    expect(respuesta.body.items[1].nombre).toBe("Concierto de prueba");
+    expect(respuesta.body.items[1].ocupacion_pct).toBe(26.67);
+  });
+
+  it("respeta el límite pedido", async () => {
+    const respuesta = await request(ctx.app).get("/api/reportes/mas-vendidos").query({ limite: 1 });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.limite).toBe(1);
+    expect(respuesta.body.items).toHaveLength(1);
+    expect(respuesta.body.items[0].nombre).toBe("Festival de verano");
+  });
+
+  it("responde 400 con un límite que no es un número", async () => {
+    const respuesta = await request(ctx.app)
+      .get("/api/reportes/mas-vendidos")
+      .query({ limite: "muchos" });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe("peticion_invalida");
+  });
+
+  it("responde 400 con un límite fuera de rango", async () => {
+    const respuesta = await request(ctx.app)
+      .get("/api/reportes/mas-vendidos")
+      .query({ limite: 500 });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe("peticion_invalida");
+  });
+});
+
+describe("T7.2 · exportación de asistentes", () => {
+  it("exporta los asistentes del evento con el snapshot del ticket", async () => {
+    const respuesta = await request(ctx.app).get(`/api/reportes/asistentes/${eventoId}`);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.total).toBe(3);
+    expect(respuesta.body.items).toHaveLength(3);
+    expect(respuesta.body.items[0]).toEqual({
+      ticket_id: expect.any(String),
+      codigo_qr: "QR-EMITIDO-1",
+      estado: "emitido",
+      tipo_ticket: { tipo_ticket_id: TIPO_GENERAL, nombre: "General", precio_cop: 100_000 },
+      asistente: {
+        usuario_id: usuarioId,
+        nombre: "Ana Asistente",
+        documento_identidad: "CC-1000001",
+        email: EMAIL,
+      },
+      precio_pagado_cop: 100_000,
+      promocion_aplicada_codigo: null,
+      emitido_en: new Date(`${DIA_UNO}T10:00:00Z`).toISOString(),
+      validado_en: null,
+    });
+  });
+
+  it("pagina la exportación", async () => {
+    const respuesta = await request(ctx.app)
+      .get(`/api/reportes/asistentes/${eventoId}`)
+      .query({ limit: 2, skip: 1 });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.total).toBe(3);
+    expect(respuesta.body.skip).toBe(1);
+    expect(respuesta.body.limit).toBe(2);
+    expect(respuesta.body.items).toHaveLength(2);
+    expect(respuesta.body.items[0].codigo_qr).toBe("QR-EMITIDO-2");
+  });
+
+  it("filtra por estado de ticket", async () => {
+    const respuesta = await request(ctx.app)
+      .get(`/api/reportes/asistentes/${eventoId}`)
+      .query({ estado: "usado" });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.items).toHaveLength(1);
+    expect(respuesta.body.items[0].codigo_qr).toBe("QR-USADO-1");
+  });
+
+  it("responde 404 cuando el evento no existe", async () => {
+    const respuesta = await request(ctx.app).get(`/api/reportes/asistentes/${ID_INEXISTENTE}`);
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error.codigo).toBe("no_encontrado");
+  });
+
+  it("responde 400 con un identificador que no es válido", async () => {
+    const respuesta = await request(ctx.app).get("/api/reportes/asistentes/no-es-un-id");
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.codigo).toBe("peticion_invalida");
+  });
+
+  it("responde 400 con un estado de ticket que no existe", async () => {
+    const respuesta = await request(ctx.app)
+      .get(`/api/reportes/asistentes/${eventoId}`)
+      .query({ estado: "inventado" });
 
     expect(respuesta.status).toBe(400);
     expect(respuesta.body.error.codigo).toBe("peticion_invalida");

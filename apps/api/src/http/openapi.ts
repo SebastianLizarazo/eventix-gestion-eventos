@@ -1,6 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ZodTypeAny } from "zod";
 import {
+  asistenteSchema,
   auditoriaInputSchema,
   auditoriaSchema,
   cierreContableSchema,
@@ -10,6 +11,7 @@ import {
   eventoSchema,
   lugarInputSchema,
   lugarSchema,
+  rankingVendidosSchema,
   ticketInputSchema,
   ticketSchema,
   transaccionInputSchema,
@@ -627,6 +629,47 @@ const RUTAS: Record<string, Record<string, Operacion>> = {
       },
     },
   },
+  "/reportes/mas-vendidos": {
+    get: {
+      summary: "Ranking de los eventos más vendidos",
+      tags: ["reportes"],
+      description:
+        "Ordena por tickets vendidos y trae la ocupación por tipo de ticket. Solo entran los eventos operativos: publicados o finalizados (un borrador no vendió nada y uno cancelado no se va a vender).",
+      parameters: [
+        {
+          nombre: "limite",
+          en: "query",
+          descripcion: "Cuántos eventos trae el ranking (por defecto: 10, máximo: 100)",
+          esquema: { type: "integer", minimum: 1, maximum: 100, default: 10 },
+        },
+      ],
+      responses: {
+        "200": respuestaDe("RankingVendidos", "El ranking de vendidos"),
+        ...ERRORES,
+      },
+    },
+  },
+  "/reportes/asistentes/{eventoId}": {
+    get: {
+      summary: "Exporta los asistentes de un evento",
+      tags: ["reportes"],
+      description:
+        "Página de asistentes del evento, con el snapshot del asistente y del tipo de ticket que guarda el ticket. No une colecciones.",
+      parameters: [
+        idParam("eventoId", "Identificador del evento"),
+        {
+          nombre: "estado",
+          en: "query",
+          descripcion: "Estado del ticket (emitido, usado, anulado)",
+        },
+        ...PAGINACION,
+      ],
+      responses: {
+        "200": respuestaDe("PaginaAsistente", "Página de asistentes"),
+        ...ERRORES,
+      },
+    },
+  },
   "/compras": {
     post: {
       summary: "Compra un ticket",
@@ -707,6 +750,9 @@ const COMPONENTES = {
     },
     DashboardEvento: esquemaDe(dashboardEventoSchema),
     CierreContable: esquemaDe(cierreContableSchema),
+    RankingVendidos: esquemaDe(rankingVendidosSchema),
+    Asistente: esquemaDe(asistenteSchema),
+    PaginaAsistente: paginaDe("Asistente"),
   },
 };
 

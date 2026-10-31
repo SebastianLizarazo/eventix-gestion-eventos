@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ESTADO_EVENTO } from "./eventos.js";
+import { ESTADO_TICKET } from "./tickets.js";
 
 /**
  * Esquemas del reporting (documento 01 §7.1).
@@ -109,3 +110,67 @@ export type ResumenEstado = z.output<typeof resumenEstadoSchema>;
 export type DiaContable = z.output<typeof diaContableSchema>;
 export type CierreContable = z.output<typeof cierreContableSchema>;
 export type EstadoContable = keyof z.output<typeof estadosContablesSchema>;
+
+/**
+ * Un evento dentro del ranking de vendidos.
+ *
+ * El ranking ordena por tickets vendidos (el contador que el sistema mantiene
+ * en el evento) y trae la ocupación por tipo de ticket.
+ */
+export const eventoRankingSchema = z.object({
+  evento_id: z.string().min(1),
+  nombre: z.string(),
+  slug: z.string(),
+  estado: z.enum(ESTADO_EVENTO),
+  fecha_inicio: z.date(),
+  tickets_vendidos_total: z.number().int().nonnegative(),
+  ingresos_cop: z.number().int().nonnegative(),
+  aforo_total: z.number().int().nonnegative(),
+  aforo_vendido: z.number().int().nonnegative(),
+  ocupacion_pct: z.number().nonnegative(),
+  tipos_ticket: z.array(ocupacionTipoTicketSchema),
+});
+
+/**
+ * Ranking de los eventos más vendidos.
+ *
+ * Solo entra lo que es **operativo**: eventos publicados o finalizados. Un
+ * evento en borrador no vendió nada y uno cancelado no se va a vender: lo que
+ * no se opera no va en el tablero de ventas.
+ */
+export const rankingVendidosSchema = z.object({
+  items: z.array(eventoRankingSchema),
+  limite: z.number().int().positive(),
+});
+
+/**
+ * Un asistente en la exportación.
+ *
+ * Los datos del asistente y del tipo de ticket son los **snapshots** que
+ * guarda el ticket (documento 04 §3.4): la exportación no une `usuarios` ni
+ * `eventos`, así que dice lo que decía el ticket cuando se emitió.
+ */
+export const asistenteSchema = z.object({
+  ticket_id: z.string().min(1),
+  codigo_qr: z.string(),
+  estado: z.enum(ESTADO_TICKET),
+  tipo_ticket: z.object({
+    tipo_ticket_id: z.string().min(1),
+    nombre: z.string(),
+    precio_cop: z.number().int().nonnegative(),
+  }),
+  asistente: z.object({
+    usuario_id: z.string().min(1),
+    nombre: z.string(),
+    documento_identidad: z.string(),
+    email: z.string(),
+  }),
+  precio_pagado_cop: z.number().int().nonnegative(),
+  promocion_aplicada_codigo: z.string().nullable(),
+  emitido_en: z.date(),
+  validado_en: z.date().nullable(),
+});
+
+export type EventoRanking = z.output<typeof eventoRankingSchema>;
+export type RankingVendidos = z.output<typeof rankingVendidosSchema>;
+export type Asistente = z.output<typeof asistenteSchema>;

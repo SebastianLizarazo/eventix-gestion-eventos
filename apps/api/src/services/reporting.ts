@@ -1,15 +1,25 @@
-import type { Document } from "mongodb";
+import type { Document, ObjectId } from "mongodb";
 import type { output, ZodTypeAny } from "zod";
 import type { Repositorios } from "../db/repos/index.js";
+import { toObjectId } from "../domain/ids.js";
 import { ESTADO_TRANSACCION } from "../domain/schemas/index.js";
 import {
+  asistenteSchema,
   cierreContableSchema,
   dashboardEventoSchema,
+  rankingVendidosSchema,
+  type Asistente,
   type CierreContable,
   type DashboardEvento,
   type EstadoContable,
+  type RankingVendidos,
   type ResumenEstado,
 } from "../domain/schemas/reporting.js";
+import type { ResultadoPaginado } from "../db/repos/base.js";
+import type { ESTADO_TICKET, Ticket } from "../domain/schemas/index.js";
+
+/** Estado de un ticket (`emitido`, `usado` o `anulado`). */
+type EstadoTicket = (typeof ESTADO_TICKET)[number];
 
 /**
  * Servicio de reporting: las cuatro consultas operativas del prototipo.
@@ -91,6 +101,35 @@ type FilaCierre = {
   _id: { dia: string; estado: string };
   cantidad: number;
   monto_cop: number;
+};
+
+/**
+ * Estados de evento que entran en el ranking.
+ *
+ * Solo lo operativo: un evento en borrador no vendió nada, y uno cancelado no
+ * se va a vender. El ranking es el tablero de ventas del operador, no un
+ * archivo histórico de todo lo que se llegó a crear.
+ */
+const ESTADOS_RANKING = ["publicado", "finalizado"];
+
+/** Fila de la agregación del ranking: un evento con sus tipos de ticket. */
+type FilaRanking = {
+  _id: ObjectId;
+  nombre: string;
+  slug: string;
+  estado: string;
+  fecha_inicio: Date;
+  tickets_vendidos_total: number | null;
+  ingresos_cop: number | null;
+  aforo_total: number | null;
+  aforo_vendido: number | null;
+  tipos_ticket: {
+    id: ObjectId | null;
+    nombre: string | null;
+    precio_cop: number | null;
+    aforo_total: number | null;
+    aforo_vendido: number | null;
+  }[];
 };
 
 /**
@@ -265,6 +304,152 @@ export function crearServicioReporting(repos: Repositorios) {
         "el cierre contable",
       );
     },
+
+    /**
+     * Ranking de los eventos más vendidos, con la ocupación por tipo de ticket.
+     *
+     * **Una sola agregación**: el evento embeba sus tipos de ticket, así que
+     * la ocupación se saca de ahí con un `$unwind` en vez de con una segunda
+     * lectura. El orden es por tickets vendidos y, a igualdad, por nombre: un
+     * tablero que cambia de orden entre dos llamadas no sirve para comparar.
+     */
+    async rankingDeVendidos(limite: number): Promise<RankingVendidos> {
+      const pipeline: Document[] = [
+        { $match: { estado: { $in: ESTADOS_RANKING } } },
+        { $unwind: { path: "$tipos_ticket", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: "$_id",
+            nombre: { $first: "$nombre" },
+            slug: { $first: "$slug" },
+            estado: { $first: "$estado" },
+            fecha_inicio: { $first: "$fecha_inicio" },
+            tickets_vendidos_total: { $first: "$metricas_evento.tickets_vendidos_total" },
+            ingresos_cop: { $first: "$metricas_evento.ingresos_cop" },
+            aforo_total: { $sum: "$tipos_ticket.aforo_total" },
+            aforo_vendido: { $sum: "$tipos_ticket.aforo_vendido" },
+            tipos_ticket: {
+              $push: {
+                id: "$tipos_ticket._id",
+                nombre: "$tipos_ticket.nombre",
+                precio_cop: "$tipos_ticket.precio_cop",
+                aforo_total: "$tipos_ticket.aforo_total",
+                aforo_vendido: "$tipos_ticket.aforo_vendido",
+              },
+            },
+          },
+        },
+        { $sort: { tickets_vendidos_total: -1, nombre: 1 } },
+        { $limit: limite },
+      ];
+
+      const filas = await repos.eventos.coleccion
+        .aggregate<FilaRanking>(pipeline, { readPreference: PREFERENCIA_LECTURA })
+        .toArray();
+
+      const items = filas.map((fila) => {
+        const tipos_ticket = (fila.tipos_ticket ?? [])
+          .filter((tipo) => typeof tipo.nombre === "string" && tipo.nombre.length > 0)
+          .map((tipo) => ({
+            tipo_ticket_id: tipo.id?.toHexString() ?? "",
+            nombre: tipo.nombre as string,
+            precio_cop: tipo.precio_cop ?? 0,
+            aforo_total: tipo.aforo_total ?? 0,
+            aforo_vendido: tipo.aforo_vendido ?? 0,
+            ocupacion_pct: porcentaje(tipo.aforo_vendido ?? 0, tipo.aforo_total ?? 0),
+          }));
+
+        const aforo_total = fila.aforo_total ?? 0;
+        const aforo_vendido = fila.aforo_vendido ?? 0;
+
+        return {
+          evento_id: fila._id.toHexString(),
+          nombre: fila.nombre,
+          slug: fila.slug,
+          estado: fila.estado,
+          fecha_inicio: fila.fecha_inicio,
+          tickets_vendidos_total: fila.tickets_vendidos_total ?? 0,
+          ingresos_cop: fila.ingresos_cop ?? 0,
+          aforo_total,
+          aforo_vendido,
+          ocupacion_pct: porcentaje(aforo_vendido, aforo_total),
+          tipos_ticket,
+        };
+      });
+
+      return interpretar(rankingVendidosSchema, { items, limite }, "el ranking de vendidos");
+    },
+
+    /**
+     * Exportación paginada de asistentes de un evento.
+     *
+     * No une colecciones: el ticket guarda el *snapshot* del asistente y del
+     * tipo de ticket (documento 04 §3.4), así que la lista sale de una lectura
+     * de `tickets` con el filtro por evento (índice `tickets_evento_id_estado`).
+     */
+    async asistentesDeEvento(
+      eventoId: string,
+      opciones: { skip: number; limit: number },
+      estado?: EstadoTicket,
+    ): Promise<ResultadoPaginado<Asistente> | null> {
+      const evento = await repos.eventos.obtenerPorId(eventoId);
+
+      if (!evento) {
+        return null;
+      }
+
+      const filtro: Document = { evento_id: toObjectId(eventoId) };
+
+      if (estado) {
+        filtro.estado = estado;
+      }
+
+      const resultado = await repos.tickets.listar(filtro, {
+        ...opciones,
+        orden: { emitido_en: 1 },
+      });
+
+      const items = resultado.items.map((ticket: Ticket) =>
+        interpretar(asistenteSchema, asistenteDe(ticket), "el asistente exportado"),
+      );
+
+      return {
+        items,
+        total: resultado.total,
+        skip: resultado.skip,
+        limit: resultado.limit,
+      };
+    },
+  };
+}
+
+/**
+ * Un ticket como asistente exportable.
+ *
+ * Los datos del asistente y del tipo de ticket son los snapshots del ticket,
+ * no los de `usuarios` ni los del evento: la exportación dice lo que decía el
+ * ticket cuando se emitió.
+ */
+function asistenteDe(ticket: Ticket): unknown {
+  return {
+    ticket_id: ticket._id ?? "",
+    codigo_qr: ticket.codigo_qr,
+    estado: ticket.estado,
+    tipo_ticket: {
+      tipo_ticket_id: ticket.snapshot_tipo_ticket.tipo_ticket_id,
+      nombre: ticket.snapshot_tipo_ticket.nombre,
+      precio_cop: ticket.snapshot_tipo_ticket.precio_cop,
+    },
+    asistente: {
+      usuario_id: ticket.asistente_snapshot.usuario_id,
+      nombre: ticket.asistente_snapshot.nombre,
+      documento_identidad: ticket.asistente_snapshot.documento_identidad,
+      email: ticket.asistente_snapshot.email,
+    },
+    precio_pagado_cop: ticket.precio_pagado_cop,
+    promocion_aplicada_codigo: ticket.promocion_aplicada_codigo ?? null,
+    emitido_en: ticket.emitido_en,
+    validado_en: ticket.validado_en ?? null,
   };
 }
 
