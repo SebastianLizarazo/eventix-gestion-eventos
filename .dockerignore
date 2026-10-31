@@ -1,0 +1,14 @@
+# Contexto de compilación de la imagen de entrega (raíz del repositorio).
+# Se excluye lo que la imagen no necesita y lo que no debe entrar en ella.
+
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/*.md
+apps/api/tests
+docs
+odd
+eventix_postgresql_actual.sql

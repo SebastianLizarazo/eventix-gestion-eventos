@@ -63,3 +63,32 @@ jobs:
 
       - name: Tests
         run: pnpm test
+
+  entrega:
+    name: Imagen de entrega
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # El compose de entrega es la prueba de que el "arranque en un comando"
+      # funciona de verdad: construye la imagen, levanta MongoDB y la API, espera
+      # a que la API esté sana (lo que implica que la siembra ya terminó) y
+      # comprueba que responde con datos.
+      - name: Construir y levantar el compose de entrega
+        run: docker compose -f docker-compose.entrega.yml up -d --build --wait --wait-timeout 300
+
+      - name: La API responde y hay datos sembrados
+        run: |
+          curl -fsS http://localhost:3000/api/health | grep -qE '"mongo":"up"'
+          curl -fsS "http://localhost:3000/api/eventos?limit=1" | grep -qE '"total":[1-9][0-9]*'
+          curl -fsS http://localhost:3000/api/openapi.json | grep -q '"openapi":"3.1.0"'
+
+      - name: Logs del compose
+        if: failure()
+        run: docker compose -f docker-compose.entrega.yml logs
+
+      - name: Bajar el compose
+        if: always()
+        run: docker compose -f docker-compose.entrega.yml down -v

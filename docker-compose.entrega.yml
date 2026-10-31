@@ -1,0 +1,96 @@
+# Compose de entrega: MongoDB y la API en contenedores, arranque en un comando.
+#
+#   docker compose -f docker-compose.entrega.yml up --build
+#
+# Deja la API en http://localhost:3000 con el dataset `dev` ya sembrado. No
+# hace falta Node ni pnpm en la máquina: solo Docker.
+#
+# Variables opcionales (con su valor por defecto):
+#   EVENTIX_PORT=3000          puerto publicado de la API
+#   EVENTIX_MONGO_PORT=27018   puerto publicado de MongoDB
+#   EVENTIX_SEED=auto          auto (siembra si la base está vacía) | always | never
+#   EVENTIX_SEED_SCALE=dev     escala del dataset: dev | full
+
+# El proyecto de Compose lleva su propio nombre para no chocar con el compose de
+# desarrollo (`docker-compose.yml`), que vive en el mismo directorio: sin esto,
+# los dos compartirían proyecto y el servicio `mongo` de uno recrearía el
+# contenedor del otro.
+name: eventix-entrega
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: eventix-entrega-mongo
+    # `--replSet` es obligatorio: las transacciones multi-documento del flujo de
+    # compra (documento 04 §6) no funcionan contra un mongod standalone.
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "${EVENTIX_MONGO_PORT:-27018}:27017"
+    volumes:
+      - entrega-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  # Inicializa el replica set. Es un servicio de un solo uso: termina con
+  # código 0 y se queda ahí.
+  #
+  # El miembro del replica set se registra como `mongo:27017` (y no como
+  # `localhost:27017`) porque la API corre en otro contenedor de la misma red:
+  # el driver resuelve el nombre que el replica set publica.
+  mongo-init:
+    image: mongo:7
+    container_name: eventix-entrega-mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - mongosh
+      - --host
+      - mongo:27017
+      - --quiet
+      - --eval
+      - |
+        try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eventix-entrega-api
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      MONGODB_URI: mongodb://mongo:27017/eventix?replicaSet=rs0
+      MONGODB_DB: eventix
+      LOG_LEVEL: info
+      # La siembra corre dentro del contenedor antes de que la API escuche.
+      SEED: "${EVENTIX_SEED:-auto}"
+      SEED_SCALE: "${EVENTIX_SEED_SCALE:-dev}"
+    ports:
+      - "${EVENTIX_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  entrega-mongo-data:
+    name: eventix-entrega-mongo-data
