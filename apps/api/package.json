@@ -17,6 +17,7 @@
     "perf:reporting": "tsx src/reporting/medir-cli.ts",
     "test:perf": "tsx src/nfr/crud-cli.ts",
     "test:esquema": "tsx src/nfr/esquema-cli.ts",
+    "test:carga": "tsx src/nfr/carga-cli.ts",
     "mongo:init": "node scripts/mongo-replica-init.mjs"
   },
   "dependencies": {
