@@ -22,7 +22,7 @@
 | 02  | [Diagnóstico del enfoque tradicional](./02-diagnostico-enfoque-tradicional.md) | Diagnóstico del enfoque tradicional              | Completo                  |
 | 03  | [Justificación tecnológica](./03-justificacion-tecnologica.md)                | Justificación tecnológica                        | Completo                  |
 | 04  | [Modelado de datos](./04-modelado-de-datos.md)                                | Modelado de datos                                | Completo                  |
-| 05  | _Implementación (prototipo + API CRUD)_                                        | Implementación                                   | Pendiente — próxima sesión |
+| 05  | [Implementación (prototipo funcional sobre MongoDB 7.x)](./05-implementacion.md) | Implementación                                   | Completo                  |
 
 ---
 
@@ -34,6 +34,6 @@
 | **Modelo anterior**    | PostgreSQL 14 (relacional, normalizado en 3FN)                                                                 |
 | **Estrategia de modelado** | Híbrida: **embed** para datos de cardinalidad baja y consultados junto al padre; **reference** para relaciones many-to-many o crecientes |
 | **Casos de uso núcleo** | Catálogo de eventos, venta de tickets, registro de asistentes, asignación de promociones, reporting operativo |
-| **Acceso (item 5)**    | API REST (a definir en la próxima sesión)                                                                      |
+| **Acceso (item 5)**    | API REST (Express 5 + MongoDB 7.x), con contrato OpenAPI 3.1 y arranque en contenedores          |
 
 > **Nota metodológica:** Este proyecto es un caso **simulado**, no se ejecuta contra datos reales. Los volúmenes, métricas y nombres son realistas pero hipotéticos, y se declaran explícitamente en el documento 01.
