@@ -14,6 +14,7 @@ import { crearRouterAuditoria } from "../../src/http/recursos/auditoria.js";
 import { crearRouterCompras } from "../../src/http/recursos/compras.js";
 import { crearRouterEventos } from "../../src/http/recursos/eventos.js";
 import { crearRouterLugares } from "../../src/http/recursos/lugares.js";
+import { crearRouterReportes } from "../../src/http/recursos/reportes.js";
 import { crearRouterTickets } from "../../src/http/recursos/tickets.js";
 import { crearRouterTransacciones } from "../../src/http/recursos/transacciones.js";
 import { crearRouterUsuarios } from "../../src/http/recursos/usuarios.js";
@@ -36,6 +37,7 @@ const PREFIJOS = {
   transacciones: "/transacciones",
   auditoria: "/auditoria",
   compras: "/compras",
+  reportes: "/reportes",
 } as const;
 
 /** Capa del router de Express (los internos no son públicos). */
@@ -175,6 +177,10 @@ describe("T4.4 · contrato OpenAPI 3.1", () => {
       ...rutasDe(crearRouterAuditoria(repos)).map((ruta) => ({
         ...ruta,
         ruta: `${PREFIJOS.auditoria}${ruta.ruta}`,
+      })),
+      ...rutasDe(crearRouterReportes(repos)).map((ruta) => ({
+        ...ruta,
+        ruta: `${PREFIJOS.reportes}${ruta.ruta}`,
       })),
       ...rutasDe(crearRouterCompras(repos, cliente)).map((ruta) => ({
         ...ruta,

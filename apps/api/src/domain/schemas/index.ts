@@ -6,3 +6,4 @@ export * from "./tickets.js";
 export * from "./transacciones.js";
 export * from "./auditoria-eventos.js";
 export * from "./compra.js";
+export * from "./reporting.js";

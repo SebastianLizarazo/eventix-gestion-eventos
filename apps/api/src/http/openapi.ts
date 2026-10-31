@@ -3,6 +3,8 @@ import type { ZodTypeAny } from "zod";
 import {
   auditoriaInputSchema,
   auditoriaSchema,
+  cierreContableSchema,
+  dashboardEventoSchema,
   entradaCompraSchema,
   eventoInputSchema,
   eventoSchema,
@@ -55,6 +57,7 @@ type RespuestaError = {
 /** Objeto de una ruta del contrato. */
 type Operacion = {
   summary: string;
+  description?: string;
   tags: string[];
   parameters?: Parametro[];
   requestBody?: Record<string, unknown>;
@@ -587,6 +590,43 @@ const RUTAS: Record<string, Record<string, Operacion>> = {
     [idParam("id", "Identificador")],
     true,
   ),
+  "/reportes/eventos/{id}/dashboard": {
+    get: {
+      summary: "Dashboard live del evento",
+      tags: ["reportes"],
+      description:
+        "Se resuelve con una única lectura sobre `eventos`: el evento embeba sus tipos de ticket y sus métricas, así que el dashboard no necesita unir colecciones.",
+      parameters: [idParam("id", "Identificador del evento")],
+      responses: {
+        "200": respuestaDe("DashboardEvento", "El dashboard del evento"),
+        ...ERRORES,
+      },
+    },
+  },
+  "/reportes/cierre-contable": {
+    get: {
+      summary: "Cierre contable diario",
+      tags: ["reportes"],
+      description:
+        "Agrupa las transacciones confirmadas por día (UTC) y por estado. El neto del día descuenta las reembolsadas del monto aprobado; las transacciones pendientes salen aparte porque no tienen fecha de confirmación.",
+      parameters: [
+        {
+          nombre: "desde",
+          en: "query",
+          descripcion: "Transacciones confirmadas desde esa fecha (inclusive)",
+        },
+        {
+          nombre: "hasta",
+          en: "query",
+          descripcion: "Transacciones confirmadas hasta esa fecha (inclusive)",
+        },
+      ],
+      responses: {
+        "200": respuestaDe("CierreContable", "El cierre contable por día"),
+        ...ERRORES,
+      },
+    },
+  },
   "/compras": {
     post: {
       summary: "Compra un ticket",
@@ -665,6 +705,8 @@ const COMPONENTES = {
         promocion_codigo: { type: ["string", "null"] },
       },
     },
+    DashboardEvento: esquemaDe(dashboardEventoSchema),
+    CierreContable: esquemaDe(cierreContableSchema),
   },
 };
 
