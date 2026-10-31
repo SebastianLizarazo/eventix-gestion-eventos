@@ -165,7 +165,7 @@ ambos a la vez: cada uno necesita su replica set, con su host.
 ## 4. La API
 
 Contrato OpenAPI 3.1 generado desde los propios esquemas del dominio, disponible
-en vivo en `GET /api/openapi.json` (**27 paths, 50 operaciones**).
+en vivo en `GET /api/openapi.json` (**27 paths, 47 operaciones**).
 
 | Superficie | Rutas |
 | --- | --- |
@@ -286,10 +286,15 @@ se pasa del umbral: no puede dar un falso verde.
 
 ### 5.5 El dataset con el que se midió
 
-| Escala | lugares | usuarios | eventos | tickets | transacciones | Tiempo | Checksum |
+| Escala | lugares | usuarios | eventos | tickets | transacciones | Tiempo medido | Checksum |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `dev` | 12 | 1.800 | 34 | 5.200 | 5.200 | 2,97 s | `08de9b2a…25cc0f` |
 | `full` | 120 | 180.000 | 340 | 520.000 | 520.000 | 181,29 s | `2e787ade…2bd` |
+
+Los tiempos son los de la máquina donde se midieron, no una promesa de
+rendimiento: cambian con el hardware. Lo que sí es una propiedad del generador es
+que el **checksum es el mismo** en dos corridas con la misma semilla, en cualquier
+máquina.
 
 El `full` es el que usa el compose de entrega si se pide (`EVENTIX_SEED_SCALE=full`)
 y el que miden los scripts de NFR. Pesa ~405 MB.
