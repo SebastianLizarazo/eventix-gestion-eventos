@@ -24,7 +24,11 @@ function fail(message, detail) {
   process.exit(1);
 }
 
-const up = compose(["up", "-d", "mongo"]);
+// `--wait` espera a que el healthcheck del contenedor pase (el mongod ya
+// acepta conexiones). Sin esta espera, el `rs.initiate` de abajo puede correr
+// contra un mongod que todavía no escucha y fallar con ECONNREFUSED: el
+// arranque en frío del contenedor es una carrera.
+const up = compose(["up", "-d", "--wait", "mongo"]);
 if (up.status !== 0) fail("No se pudo levantar el contenedor de MongoDB.");
 
 const initiated = compose(["exec", "-T", "mongo", "mongosh", "--quiet", "--eval", RS_INIT], {
