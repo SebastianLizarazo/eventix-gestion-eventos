@@ -6,9 +6,11 @@
 **/node_modules
 **/dist
 **/coverage
-**/.env
+# Archivos de entorno, incluidos los derivados (.env.local, .env.production).
+**/.env*
 **/*.md
 apps/api/tests
 docs
 odd
+# El volcado de PostgreSQL del sistema legado no es parte de la imagen.
 eventix_postgresql_actual.sql

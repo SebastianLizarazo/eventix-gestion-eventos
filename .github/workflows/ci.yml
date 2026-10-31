@@ -81,9 +81,9 @@ jobs:
 
       - name: La API responde y hay datos sembrados
         run: |
-          curl -fsS http://localhost:3000/api/health | grep -qE '"mongo":"up"'
-          curl -fsS "http://localhost:3000/api/eventos?limit=1" | grep -qE '"total":[1-9][0-9]*'
-          curl -fsS http://localhost:3000/api/openapi.json | grep -q '"openapi":"3.1.0"'
+          curl -fsS http://localhost:3000/api/health | grep -qE '"mongo"[[:space:]]*:[[:space:]]*"up"'
+          curl -fsS "http://localhost:3000/api/eventos?limit=1" | grep -qE '"total"[[:space:]]*:[[:space:]]*34,'
+          curl -fsS http://localhost:3000/api/openapi.json | grep -qE '"openapi"[[:space:]]*:[[:space:]]*"3\.1\.0"'
 
       - name: Logs del compose
         if: failure()

@@ -110,6 +110,7 @@ con `mongosh` sin entrar al contenedor.
 
 | Variable | Por defecto | Qué hace |
 | --- | --- | --- |
+| `EVENTIX_BIND` | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red |
 | `EVENTIX_PORT` | `3000` | Puerto publicado de la API |
 | `EVENTIX_MONGO_PORT` | `27018` | Puerto publicado de MongoDB |
 | `EVENTIX_SEED` | `auto` | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra |
@@ -417,6 +418,23 @@ validador no declara"* pasara a decir "sí", y la prueba cruda perdería su valo
   su único escritor, y por eso el conteo de esa colección es 0 y no un olvido.
 - **Dos bases de datos no se pueden compartir** entre el flujo de desarrollo y el
   de entrega (3.4).
+
+### 8.7 La superficie de entrega tiene límites propios
+
+- **Los puertos se publican en `127.0.0.1`**, no en todas las interfaces. La base
+  **no tiene autenticación** (8.1), así que exponer MongoDB a una red que no sea
+  de confianza sería un agujero real: quien llegue al puerto puede leer y
+  escribir la base. `EVENTIX_BIND=0.0.0.0` abre la publicación, y esa es una
+  decisión consciente, no un default.
+- **Las imágenes se referencian por etiqueta mutable** (`node:22-alpine`,
+  `mongo:7`), no por digest: los bytes que corren pueden cambiar sin que
+  cambie el repositorio. Fijar digests es lo correcto para un despliegue, y es
+  una decisión que este prototipo no toma.
+- **El contenedor de la API no tiene política de reinicio.** Si la preparación de
+  la base falla, el contenedor queda **caído y visible**, con el error en sus
+  logs. Con una política de reinicio, un error de configuración se convierte en
+  un bucle infinito que *parece* que la API está arrancada: es el peor modo de
+  fallo posible, porque el operador espera a algo que no responde.
 
 ---
 

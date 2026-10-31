@@ -6,10 +6,12 @@
 # hace falta Node ni pnpm en la máquina: solo Docker.
 #
 # Variables opcionales (con su valor por defecto):
+#   EVENTIX_BIND=127.0.0.1     interfaz de publicación; 0.0.0.0 la expone a la red
 #   EVENTIX_PORT=3000          puerto publicado de la API
 #   EVENTIX_MONGO_PORT=27018   puerto publicado de MongoDB
 #   EVENTIX_SEED=auto          auto (siembra si la base está vacía) | always | never
 #   EVENTIX_SEED_SCALE=dev     escala del dataset: dev | full
+#   MONGO_WAIT_TIMEOUT_MS=120000  espera máxima por el primario (dentro del contenedor)
 
 # El proyecto de Compose lleva su propio nombre para no chocar con el compose de
 # desarrollo (`docker-compose.yml`), que vive en el mismo directorio: sin esto,
@@ -25,7 +27,7 @@ services:
     # compra (documento 04 §6) no funcionan contra un mongod standalone.
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
-      - "${EVENTIX_MONGO_PORT:-27018}:27017"
+      - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_MONGO_PORT:-27018}:27017"
     volumes:
       - entrega-mongo-data:/data/db
     healthcheck:
@@ -78,7 +80,7 @@ services:
       SEED: "${EVENTIX_SEED:-auto}"
       SEED_SCALE: "${EVENTIX_SEED_SCALE:-dev}"
     ports:
-      - "${EVENTIX_PORT:-3000}:3000"
+      - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_PORT:-3000}:3000"
     healthcheck:
       test:
         - CMD
@@ -89,7 +91,10 @@ services:
       timeout: 5s
       retries: 18
       start_period: 60s
-    restart: unless-stopped
+    # Sin `restart`: si la preparación de la base falla, el contenedor tiene que
+    # quedar caído y visible, con el error en sus logs. Con una política de
+    # reinicio, un error de configuración se convierte en un bucle infinito que
+    # parece que la API está arrancada.
 
 volumes:
   entrega-mongo-data:

@@ -26,6 +26,39 @@ const ESCALA = process.env.SEED_SCALE ?? "dev";
 const SIEMBRA = process.env.SEED ?? "auto";
 const ESPERA_MS = Number(process.env.MONGO_WAIT_TIMEOUT_MS ?? 120_000);
 
+/** Modos de siembra que la imagen de entrega acepta. */
+const MODOS_SIEMBRA = ["auto", "always", "never"];
+
+/** Escalas que el CLI de seed acepta (las de `src/seed/volumenes.ts`). */
+const ESCALAS_SEMILLA = ["dev", "full"];
+
+/**
+ * Valida los interruptores de entorno antes de tocar la base.
+ *
+ * Un valor mal escrito tiene que fallar acá, con el mensaje que dice qué
+ * valores son válidos: si no, el CLI de seed lo rechaza más tarde y el
+ * contenedor queda en un bucle de reinicio que esconde la causa real.
+ */
+function validarConfiguracion() {
+  if (!MODOS_SIEMBRA.includes(SIEMBRA)) {
+    throw new Error(
+      `SEED inválido: "${SIEMBRA}". Los valores permitidos son: ${MODOS_SIEMBRA.join(", ")}`,
+    );
+  }
+
+  if (!ESCALAS_SEMILLA.includes(ESCALA)) {
+    throw new Error(
+      `SEED_SCALE inválido: "${ESCALA}". Los valores permitidos son: ${ESCALAS_SEMILLA.join(", ")}`,
+    );
+  }
+
+  if (!Number.isFinite(ESPERA_MS) || ESPERA_MS <= 0) {
+    throw new Error(
+      `MONGO_WAIT_TIMEOUT_MS inválido: "${process.env.MONGO_WAIT_TIMEOUT_MS}". Debe ser un número de milisegundos mayor que cero`,
+    );
+  }
+}
+
 /**
  * Ejecuta uno de los CLI compilados de la API y propaga su código de salida.
  *
@@ -88,6 +121,8 @@ async function esperarMongo() {
 }
 
 async function main() {
+  validarConfiguracion();
+
   const cliente = await esperarMongo();
 
   try {

@@ -17,6 +17,10 @@ RUN corepack enable
 
 # Los manifiestos van primero: mientras no cambien, la capa de instalación se
 # reutiliza entre compilaciones.
+#
+# Ojo: se copian los manifiestos de los paquetes del workspace que existen. Si
+# se agrega otro paquete al workspace, su `package.json` tiene que copiar aquí
+# también, o la instalación de producción no va a resolver el workspace.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 
