@@ -35,9 +35,8 @@ const ESCALAS_SEMILLA = ["dev", "full"];
 /**
  * Valida los interruptores de entorno antes de tocar la base.
  *
- * Un valor mal escrito tiene que fallar acá, con el mensaje que dice qué
- * valores son válidos: si no, el CLI de seed lo rechaza más tarde y el
- * operador recibe un error que no dice qué valores eran válidos.
+ * Un valor mal escrito tiene que fallar acá: el CLI de seed lo rechaza más
+ * tarde, y su error no dice qué valores eran válidos.
  */
 function validarConfiguracion() {
   if (!MODOS_SIEMBRA.includes(SIEMBRA)) {

@@ -79,9 +79,9 @@ services:
       # La siembra corre dentro del contenedor antes de que la API escuche.
       SEED: "${EVENTIX_SEED:-auto}"
       SEED_SCALE: "${EVENTIX_SEED_SCALE:-dev}"
-      # La espera por el primario, dentro del contenedor. Se reenvía con el
-      # nombre que lee el script de preparación: sin esto, el valor que el
-      # operador pone en el shell no llegaría nunca al script.
+      # La espera por el primario, dentro del contenedor. El shell usa
+      # EVENTIX_MONGO_WAIT_TIMEOUT_MS; dentro del contenedor la variable se
+      # llama MONGO_WAIT_TIMEOUT_MS, que es la que lee el script de preparación.
       MONGO_WAIT_TIMEOUT_MS: "${EVENTIX_MONGO_WAIT_TIMEOUT_MS:-120000}"
     ports:
       - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_PORT:-3000}:3000"

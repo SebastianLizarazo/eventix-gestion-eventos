@@ -26,6 +26,11 @@ La API queda en **http://localhost:3000** y MongoDB en `localhost:27018` (por si
 quieres mirar la base). Para bajar todo: `docker compose -f docker-compose.entrega.yml
 down` (o `down -v` para borrar también los datos).
 
+El contenedor de la API **no tiene política de reinicio**: si la preparación de
+la base falla, queda **caído y visible** (con el error en sus logs, y
+`docker compose ps` lo muestra como `exited`) en vez de reiniciarse en loop.
+Hay que volver a levantarlo a mano con `up`.
+
 | Variable             | Por defecto | Qué hace                                                                               |
 | -------------------- | ----------- | -------------------------------------------------------------------------------------- |
 | `EVENTIX_BIND`       | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red                                  |
