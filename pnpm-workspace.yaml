@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+
+# pnpm 12 lee la configuración desde pnpm-workspace.yaml (no desde package.json).
+# allowBuilds es el reemplazo de onlyBuiltDependencies: sin esto, la instalación
+# falla con ERR_PNPM_IGNORED_BUILDS porque esbuild no puede colocar su binario.
+allowBuilds:
+  esbuild: true

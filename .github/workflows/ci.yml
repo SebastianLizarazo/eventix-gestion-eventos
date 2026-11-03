@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Cancela ejecuciones anteriores del mismo ref cuando hay pushes nuevos.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, tipos y tests
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      MONGODB_URI: mongodb://localhost:27017/eventix_test?replicaSet=rs0
+      MONGODB_DB: eventix_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      # Guardián de codificación: en Windows, un archivo escrito desde la consola
+      # con PowerShell 5.1 queda doblemente codificado. Este paso corta el CI
+      # antes de que ese archivo llegue al repositorio.
+      - name: Codificación UTF-8
+        run: pnpm check:utf8
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # MongoDB 7.x con replica set: el flujo de compra usa transacciones
+      # multi-documento, que no existen contra un mongod standalone. Por eso no se
+      # usa un service container (GitHub Actions no permite sobrescribir su comando)
+      # sino un contenedor arrancado desde el step, igual que en local.
+      - name: Levantar MongoDB 7.x (replica set rs0)
+        run: |
+          docker run -d --name eventix-mongo-ci -p 27017:27017 mongo:7 mongod --replSet rs0 --bind_ip_all
+          pnpm --filter @eventix/api mongo:init
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+  entrega:
+    name: Imagen de entrega
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # El compose de entrega es la prueba de que el "arranque en un comando"
+      # funciona de verdad: construye la imagen, levanta MongoDB y la API, espera
+      # a que la API esté sana (lo que implica que la siembra ya terminó) y
+      # comprueba que responde con datos.
+      - name: Construir y levantar el compose de entrega
+        run: docker compose -f docker-compose.entrega.yml up -d --build --wait --wait-timeout 300
+
+      - name: La API responde y hay datos sembrados
+        run: |
+          curl -fsS http://localhost:3000/api/health | grep -qE '"mongo"[[:space:]]*:[[:space:]]*"up"'
+          # 34 es el número de eventos del seed `dev`, la escala por defecto de la entrega.
+          curl -fsS "http://localhost:3000/api/eventos?limit=1" | grep -qE '"total"[[:space:]]*:[[:space:]]*34[,}]'
+          curl -fsS http://localhost:3000/api/openapi.json | grep -qE '"openapi"[[:space:]]*:[[:space:]]*"3\.1\.0"'
+
+      - name: Logs del compose
+        if: failure()
+        run: docker compose -f docker-compose.entrega.yml logs
+
+      - name: Bajar el compose
+        if: always()
+        run: docker compose -f docker-compose.entrega.yml down -v

@@ -1,0 +1,16 @@
+# Contexto de compilación de la imagen de entrega (raíz del repositorio).
+# Se excluye lo que la imagen no necesita y lo que no debe entrar en ella.
+
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+# Archivos de entorno, incluidos los derivados (.env.local, .env.production).
+**/.env*
+**/*.md
+apps/api/tests
+docs
+odd
+# El volcado de PostgreSQL del sistema legado no es parte de la imagen.
+eventix_postgresql_actual.sql

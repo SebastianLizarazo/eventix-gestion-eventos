@@ -1,0 +1,8 @@
+# Normaliza los finales de línea en el repositorio: LF para todo el contenido de texto.
+# Evita diffs ruidosos entre Windows (CRLF) y Linux (LF) en un proyecto que se entrega
+# y revisa en GitHub.
+* text=auto eol=lf
+
+# Scripts de Windows que deben conservar CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
