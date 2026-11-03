@@ -37,7 +37,7 @@ const ESCALAS_SEMILLA = ["dev", "full"];
  *
  * Un valor mal escrito tiene que fallar acá, con el mensaje que dice qué
  * valores son válidos: si no, el CLI de seed lo rechaza más tarde y el
- * contenedor queda en un bucle de reinicio que esconde la causa real.
+ * operador recibe un error que no dice qué valores eran válidos.
  */
 function validarConfiguracion() {
   if (!MODOS_SIEMBRA.includes(SIEMBRA)) {

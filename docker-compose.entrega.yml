@@ -11,7 +11,7 @@
 #   EVENTIX_MONGO_PORT=27018   puerto publicado de MongoDB
 #   EVENTIX_SEED=auto          auto (siembra si la base está vacía) | always | never
 #   EVENTIX_SEED_SCALE=dev     escala del dataset: dev | full
-#   MONGO_WAIT_TIMEOUT_MS=120000  espera máxima por el primario (dentro del contenedor)
+#   EVENTIX_MONGO_WAIT_TIMEOUT_MS=120000  espera máxima por el primario (dentro del contenedor)
 
 # El proyecto de Compose lleva su propio nombre para no chocar con el compose de
 # desarrollo (`docker-compose.yml`), que vive en el mismo directorio: sin esto,
@@ -79,6 +79,10 @@ services:
       # La siembra corre dentro del contenedor antes de que la API escuche.
       SEED: "${EVENTIX_SEED:-auto}"
       SEED_SCALE: "${EVENTIX_SEED_SCALE:-dev}"
+      # La espera por el primario, dentro del contenedor. Se reenvía con el
+      # nombre que lee el script de preparación: sin esto, el valor que el
+      # operador pone en el shell no llegaría nunca al script.
+      MONGO_WAIT_TIMEOUT_MS: "${EVENTIX_MONGO_WAIT_TIMEOUT_MS:-120000}"
     ports:
       - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_PORT:-3000}:3000"
     healthcheck:

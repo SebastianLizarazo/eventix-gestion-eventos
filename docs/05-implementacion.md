@@ -115,6 +115,7 @@ con `mongosh` sin entrar al contenedor.
 | `EVENTIX_MONGO_PORT` | `27018` | Puerto publicado de MongoDB |
 | `EVENTIX_SEED` | `auto` | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra |
 | `EVENTIX_SEED_SCALE` | `dev` | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
+| `EVENTIX_MONGO_WAIT_TIMEOUT_MS` | `120000` | Espera máxima por el primario, dentro del contenedor |
 
 Para bajar todo: `docker compose -f docker-compose.entrega.yml down` (o `down -v`
 para borrar también los datos).
