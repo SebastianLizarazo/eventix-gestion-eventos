@@ -20,6 +20,7 @@ export type Seccion = {
 export const SECCIONES: Seccion[] = [
   { ruta: "/", titulo: "Inicio" },
   { ruta: "/catalogo", titulo: "Catálogo" },
+  { ruta: "/reportes", titulo: "Reportes" },
 ];
 
 /** Barra de navegación. */

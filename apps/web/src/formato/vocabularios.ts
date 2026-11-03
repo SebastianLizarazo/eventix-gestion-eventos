@@ -1,4 +1,11 @@
-import type { EstadoEvento, TipoEvento, TipoPromocion, VisibilidadEvento } from "@/api/tipos";
+import type {
+  EstadoContable,
+  EstadoEvento,
+  EstadoTicket,
+  TipoEvento,
+  TipoPromocion,
+  VisibilidadEvento,
+} from "@/api/tipos";
 
 /**
  * Vocabularios del dominio, en español.
@@ -41,4 +48,31 @@ export const ETIQUETA_TIPO_PROMOCION: Record<TipoPromocion, string> = {
   porcentaje: "Porcentaje",
   "2x1": "2x1",
   early_bird: "Early bird",
+};
+
+/**
+ * Etiqueta en español de cada estado del ticket.
+ *
+ * El ticket tiene su propio vocabulario, distinto del estado del evento: un
+ * evento puede estar publicado y sus tickets estar emitidos, usados o
+ * anulados.
+ */
+export const ETIQUETA_ESTADO_TICKET: Record<EstadoTicket, string> = {
+  emitido: "Emitido",
+  usado: "Usado",
+  anulado: "Anulado",
+};
+
+/**
+ * Etiqueta en español de cada estado contable de una transacción.
+ *
+ * El estado contable es otro vocabulario, distinto del del evento y del del
+ * ticket: es el que el cierre contable agrupa.
+ */
+export const ETIQUETA_ESTADO_CONTABLE: Record<EstadoContable, string> = {
+  pendiente: "Pendiente",
+  aprobada: "Aprobada",
+  rechazada: "Rechazada",
+  anulada: "Anulada",
+  reembolsada: "Reembolsada",
 };
