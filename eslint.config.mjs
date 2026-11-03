@@ -11,7 +11,8 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettier,
   {
-    files: ["**/*.ts"],
+    // TypeScript y TSX: la interfaz web (`apps/web`) también es TypeScript.
+    files: ["**/*.ts", "**/*.tsx"],
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",

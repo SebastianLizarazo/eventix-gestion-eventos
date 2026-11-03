@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/*
+ * Base de la interfaz.
+ *
+ * Tailwind v4 se configura desde el CSS: no hay `tailwind.config.js`. El tema
+ * vive en `@theme` y las utilidades se usan directamente en los componentes.
+ */
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
