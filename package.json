@@ -26,6 +26,7 @@
     "test:esquema": "pnpm --filter @eventix/api test:esquema",
     "test:carga": "pnpm --filter @eventix/api test:carga",
     "check:utf8": "node scripts/check-utf8.mjs",
+    "verificar:contrato": "node scripts/verificar-contrato.mjs",
     "mongo:up": "node scripts/mongo-up.mjs",
     "mongo:down": "node scripts/mongo-down.mjs",
     "mongo:logs": "docker compose logs -f mongo"
@@ -36,6 +37,7 @@
     "eslint-config-prettier": "^10.0.0",
     "globals": "^17.13.0",
     "prettier": "^3.4.2",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.18.1"
   }
 }

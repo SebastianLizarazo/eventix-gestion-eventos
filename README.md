@@ -76,7 +76,15 @@ pnpm lint                          # ESLint
 pnpm typecheck                     # tsc --noEmit
 pnpm format:check                  # Prettier
 pnpm check:utf8                    # guardián de codificación
+pnpm verificar:contrato            # el cliente y la API hablan el mismo idioma
 ```
+
+`pnpm verificar:contrato` **contrasta la respuesta real de la API contra los
+tipos que declara la interfaz** (`apps/web/src/api/tipos.ts`): pide los datos
+de verdad y los recorre con el compilador de TypeScript. Si la API manda una
+clave que el tipo no declara —o al revés— el comando falla y dice cuál. Es la
+comprobación que sostiene que el cliente y el servidor no se van a
+desincronizar; necesita la API arriba (`pnpm dev`).
 
 ## Estructura
 
