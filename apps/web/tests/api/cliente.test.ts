@@ -319,6 +319,34 @@ describe("cliente HTTP de Eventix", () => {
       expect(llamadas[0]?.cuerpo).toBeUndefined();
     });
 
+    it("un estado declarado como aceptado se lee como respuesta y no como error", async () => {
+      const { fetch } = fetchFalso(
+        respuestaJson(503, {
+          status: "degraded",
+          mongo: "down",
+          version: "0.1.0",
+          uptimeSeconds: 12,
+        }),
+      );
+      const cliente = crearClienteHttp("/api", fetch);
+
+      const salud = await cliente.obtener<{ status: string; mongo: string }>("/health", {
+        estadosAceptados: [503],
+      });
+
+      expect(salud.status).toBe("degraded");
+      expect(salud.mongo).toBe("down");
+    });
+
+    it("sin la excepción, ese mismo 503 es un fallo", async () => {
+      const { fetch } = fetchFalso(respuestaJson(503, { status: "degraded", mongo: "down" }));
+      const cliente = crearClienteHttp("/api", fetch);
+
+      const error = await errorDe(cliente.obtener("/health"));
+
+      expect(error).toBeInstanceOf(ErrorConexion);
+    });
+
     it("el cliente por defecto usa el fetch global en el momento de la llamada", async () => {
       const { fetch, llamadas } = fetchFalso(respuestaJson(200, { status: "ok" }));
       vi.stubGlobal("fetch", fetch);

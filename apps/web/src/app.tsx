@@ -1,15 +1,23 @@
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Inicio } from "@/pantallas/inicio";
+import { NoEncontrada } from "@/pantallas/no-encontrada";
+import { Layout } from "@/ui/layout";
+
 /**
- * Raíz de la aplicación.
+ * Raíz de la aplicación: el enrutador y las pantallas que ya existen.
  *
- * En el Hito 0 (Cimientos) solo se declara el cascarón: el layout, la
- * navegación y la pantalla de inicio llegan en las tareas siguientes del
- * mismo hito.
+ * El enrutador es la pieza que H0 deja lista para todas las pantallas del
+ * roadmap: cada hito publica su sección en la navegación y la registra aquí.
  */
 export function App() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-4 p-8">
-      <h1 className="text-3xl font-bold text-slate-900">Eventix</h1>
-      <p className="text-slate-600">Interfaz web en construcción.</p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Inicio />} />
+          <Route path="*" element={<NoEncontrada />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -47,6 +47,16 @@ export type OpcionesPeticion = {
   query?: Record<string, string | number | boolean | null | undefined>;
   /** Aborta la petición (React Query lo usa para cancelar queries viejas). */
   signal?: AbortSignal;
+  /**
+   * Estados que **no** se consideran error.
+   *
+   * El healthcheck responde `503` cuando MongoDB no responde, y ese 503
+   * **es** la respuesta que la interfaz quiere mostrar (la API está viva pero
+   * degradada), no un fallo del transporte. Sin esta excepción, la pantalla
+   * de inicio diría "no se pudo hablar con la API" cuando en realidad sí hay
+   * respuesta.
+   */
+  estadosAceptados?: readonly number[];
 };
 
 /** Cliente HTTP tipado. */
@@ -87,7 +97,9 @@ export function crearClienteHttp(base: string, fetchImpl?: typeof fetch): Client
 
     const respuesta = await ejecutar(url, init, fetchImpl);
 
-    if (!respuesta.ok) {
+    const aceptado = opciones.estadosAceptados ?? [];
+
+    if (!respuesta.ok && !aceptado.includes(respuesta.status)) {
       throw await errorDeRespuesta(respuesta);
     }
 
