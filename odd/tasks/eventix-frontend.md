@@ -78,7 +78,7 @@
 
 ### S12 — Entregable académico
 
-- **Alcance autorizado:** `docs/06-interfaz-web.md` (qué muestra la interfaz, cómo corre, qué evidencia tiene), fila nueva en `docs/README.md` y runbook en el README raíz. **Pendiente de confirmar con el usuario:** si el avance evaluado tiene un ítem propio para la interfaz, o si esta debe presentarse como ampliación del ítem 5 — el nombre del documento y la fila de la tabla dependen de eso.
+- **Alcance autorizado:** la interfaz web es la **parte 06 del avance** (decisión del usuario): `docs/06-interfaz-web.md` (qué muestra la interfaz, cómo corre, qué evidencia tiene), fila nueva en `docs/README.md` con el ítem del avance "Interfaz web", fila correspondiente en el resumen ejecutivo de ese mismo archivo, y runbook en el README raíz.
 - **Criterios de aceptación:** un evaluador puede clonar → `pnpm install` → `pnpm mongo:up` → `pnpm db:setup` → `pnpm seed --scale=dev` → `pnpm dev` y ver la interfaz, sin pasos ocultos.
 - **Checks:** runbook ejecutado en limpio.
 
@@ -142,3 +142,4 @@
 - **L9 — 2026-11-03 — Pendiente de confirmar con el usuario:** (1) si el avance evaluado tiene un ítem propio para la interfaz o si esta se presenta como ampliación del ítem 5 — de eso dependen el nombre de `docs/06-interfaz-web.md` y la fila de `docs/README.md`; (2) si el profesor expone **solo** la interfaz o también el código de la API, porque eso decide si hace falta una vista que muestre el contrato OpenAPI como parte de la propia interfaz.
 - **L10 — 2026-11-03 — Frontier:** **H0 · Cimientos** (T0.1–T0.9). Es el bloque que habilita todo lo demás: sin el cliente HTTP tipado y la capa de datos, cada pantalla reimplementaría el manejo de errores y la paginación.
 - **L11 — 2026-11-03 — Convenciones heredadas:** se mantiene el patrón del roadmap del ítem 5: specs con alcance y criterios, tareas con ruta (inline/delegated) y línea de riesgo, y este `## Log` como registro vivo. El test-first del proyecto sigue igual: **RED→GREEN** por regla, un test por regla, y el que escribe es el que corre la prueba. El dialecto técnico (código, comentarios, mensajes de la UI) va en español, igual que el resto del repositorio.
+- **L12 — 2026-11-03 — L9 (1) resuelta por el usuario:** la interfaz web es una **parte 06 nueva** del avance, no una ampliación del ítem 5. Consecuencias: el documento de entrega se llama `docs/06-interfaz-web.md`; la tabla "Estructura de la entrega" de `docs/README.md` suma la fila `06` con el ítem del avance "Interfaz web"; y el resumen ejecutivo de ese archivo suma la fila del acceso por interfaz web. Con esto, **la única pregunta abierta de L9 es la (2)** (si el profesor expone solo la interfaz o también el código de la API), y no bloquea H0–H5: se resuelve antes de H6.
