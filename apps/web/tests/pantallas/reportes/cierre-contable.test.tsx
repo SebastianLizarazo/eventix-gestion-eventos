@@ -53,6 +53,32 @@ const CIERRE = {
 };
 
 /**
+ * Un cierre con muchos días, para probar la paginación de la tabla.
+ *
+ * Los días son de enero: no chocan con los dos del fixture de arriba, así que
+ * cada prueba puede buscar su día sin ambigüedad.
+ */
+function cierreConDias(cantidad: number): Record<string, unknown> {
+  const dias = [];
+
+  for (let i = 0; i < cantidad; i++) {
+    dias.push({
+      dia: new Date(Date.UTC(2023, 0, 1 + i)).toISOString().slice(0, 10),
+      por_estado: {
+        pendiente: { cantidad: 0, monto_cop: 0 },
+        aprobada: { cantidad: 1, monto_cop: 10000 },
+        rechazada: { cantidad: 0, monto_cop: 0 },
+        anulada: { cantidad: 0, monto_cop: 0 },
+        reembolsada: { cantidad: 0, monto_cop: 0 },
+      },
+      neto_cop: 10000,
+    });
+  }
+
+  return { ...CIERRE, dias };
+}
+
+/**
  * Red falsa: responde con la forma real del contrato y anota lo que se pidió.
  *
  * La API rechaza el rango invertido con un 400 de `peticion_invalida`, así que
@@ -259,5 +285,47 @@ describe("panel de cierre contable", () => {
     expect(
       await screen.findByText("No hay transacciones confirmadas en el rango"),
     ).toBeInTheDocument();
+  });
+
+  it("pagina los días del cierre de 30 en 30", async () => {
+    const { fetchFalso } = crearRed(cierreConDias(45));
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    renderPanel();
+
+    await screen.findByText("01/01/2023");
+
+    // La primera página trae 30 días de los 45 que trae la respuesta.
+    expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
+    expect(screen.getByText("30/01/2023")).toBeInTheDocument();
+    expect(screen.queryByText("31/01/2023")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+
+    // La segunda página trae los 15 que quedan.
+    expect(await screen.findByText("31/01/2023")).toBeInTheDocument();
+    expect(screen.queryByText("01/01/2023")).not.toBeInTheDocument();
+    expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
+  });
+
+  it("vuelve a la primera página cuando se aplica un rango nuevo", async () => {
+    const { fetchFalso } = crearRed(cierreConDias(45));
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    renderPanel();
+
+    await screen.findByText("01/01/2023");
+
+    await userEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+
+    expect(await screen.findByText("Página 2 de 2")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2023-01-01" } });
+    await userEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    // El rango nuevo es otra consulta: la tabla vuelve a su primera página.
+    expect(await screen.findByText("Página 1 de 2")).toBeInTheDocument();
   });
 });

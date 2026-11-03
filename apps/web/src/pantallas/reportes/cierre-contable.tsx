@@ -19,6 +19,8 @@ import { AvisoError, Cargando, Dato, Tarjeta, Vacio } from "@/ui/piezas";
  *   no, cada cambio de día sería una consulta a la API.
  * - **Las fechas vacías no viajan.** El rango se manda con lo que se escribió;
  *   un campo sin escribir es ausencia de filtro, no una fecha inventada.
+ * - **La tabla se pagina en la pantalla.** La API devuelve todos los días del
+ *   rango de una sola vez, así que el corte de 30 en 30 es de la tabla.
  * - **Los cinco estados se iteran siempre.** El contrato es cerrado: los cinco
  *   estados vienen aunque valgan cero, así que la tabla tiene siempre las
  *   mismas columnas y no se deducen de los datos.
@@ -40,6 +42,16 @@ const ESTADOS_CONTABLES: readonly EstadoContable[] = [
   "anulada",
   "reembolsada",
 ];
+
+/**
+ * Días por página: el tamaño con el que la tabla del cierre se pagina.
+ *
+ * La API devuelve **todos** los días del rango en una sola respuesta —no
+ * pagina—, así que la paginación es de la pantalla: la tabla muestra 30 días
+ * por página de los que vinieron. Con el dataset completo son 434 días, y
+ * pintarlos todos de una vez es una tabla que no se puede recorrer.
+ */
+const POR_PAGINA = 30;
 
 /** El rango que se escribe en el formulario. */
 type Rango = { desde: string; hasta: string };
@@ -66,9 +78,26 @@ export function PanelCierreContable() {
   const [borrador, setBorrador] = useState<Rango>(RANGO_INICIAL);
   // Lo que la API tiene que responder.
   const [aplicados, setAplicados] = useState<RangoAplicado>({});
+  // La página de la tabla: son días de la respuesta, no documentos de la API.
+  const [pagina, setPagina] = useState(1);
 
   const cierre = useCierreContable(aplicados);
   const datos = cierre.isSuccess ? cierre.data : null;
+
+  /**
+   * Cuántas páginas tiene la tabla y cuál se está viendo.
+   *
+   * La página se **acota** al total: si el rango se encoge (o la respuesta
+   * llega con menos días), la pantalla no se queda en una página que ya no
+   * existe y con la tabla vacía.
+   */
+  const totalPaginas =
+    datos === null ? 1 : Math.max(1, Math.ceil(datos.dias.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const diasDeLaPagina =
+    datos === null
+      ? []
+      : datos.dias.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
 
   /** Cambia un límite del borrador: todavía no consulta nada. */
   function cambiar(campo: keyof Rango) {
@@ -85,6 +114,9 @@ export function PanelCierreContable() {
       desde: borrador.desde === "" ? undefined : borrador.desde,
       hasta: borrador.hasta === "" ? undefined : borrador.hasta,
     });
+
+    // Un rango nuevo es otra serie: la tabla vuelve a su primera página.
+    setPagina(1);
   }
 
   return (
@@ -152,7 +184,39 @@ export function PanelCierreContable() {
             {datos.dias.length === 0 ? (
               <Vacio texto="No hay transacciones confirmadas en el rango" />
             ) : (
-              <TablaCierre dias={datos.dias} />
+              <>
+                <TablaCierre dias={diasDeLaPagina} />
+
+                <nav
+                  aria-label="Paginación del cierre contable"
+                  className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"
+                >
+                  <p className="text-sm text-slate-600">
+                    Página {paginaActual} de {totalPaginas}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    {formatearNumero(datos.dias.length)} días
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPagina(paginaActual - 1)}
+                      disabled={paginaActual === 1}
+                      className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPagina(paginaActual + 1)}
+                      disabled={paginaActual === totalPaginas}
+                      className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </nav>
+              </>
             )}
           </>
         )}
@@ -191,6 +255,9 @@ export function PanelCierreContable() {
 
 /**
  * La tabla del cierre: una fila por día y una columna por estado.
+ *
+ * Recibe **los días de la página que se está viendo**, no todos los del rango:
+ * el corte lo hace quien la dibuja.
  *
  * Los cinco estados se iteran siempre, en el orden del contrato, así que las
  * columnas no dependen de lo que vino en la respuesta.
