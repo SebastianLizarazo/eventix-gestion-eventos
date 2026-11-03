@@ -17,7 +17,10 @@ export type Seccion = {
 };
 
 /** Las secciones que la interfaz tiene publicadas. */
-export const SECCIONES: Seccion[] = [{ ruta: "/", titulo: "Inicio" }];
+export const SECCIONES: Seccion[] = [
+  { ruta: "/", titulo: "Inicio" },
+  { ruta: "/catalogo", titulo: "Catálogo" },
+];
 
 /** Barra de navegación. */
 export function Navegacion() {

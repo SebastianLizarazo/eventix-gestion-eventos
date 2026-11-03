@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Catalogo } from "@/pantallas/catalogo";
 import { Inicio } from "@/pantallas/inicio";
 import { NoEncontrada } from "@/pantallas/no-encontrada";
 import { Layout } from "@/ui/layout";
@@ -15,6 +16,7 @@ export function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Inicio />} />
+          <Route path="/catalogo" element={<Catalogo />} />
           <Route path="*" element={<NoEncontrada />} />
         </Route>
       </Routes>
