@@ -161,10 +161,11 @@ export function useEvento(id: string | null): UseQueryResult<Evento, Error> {
  * eventos.
  *
  * La colección de lugares es pequeña y cabe en una página: por eso se pide
- * entera y no en trozos.
+ * entera y no en trozos. El límite es el máximo que acepta la API (200), y da
+ * de sobra para los 120 lugares del dataset.
  */
 export function useLugares(): UseQueryResult<Pagina<Lugar>, Error> {
-  return useListar<Lugar>(CLAVES.lugares, "/lugares", { limit: 100 });
+  return useListar<Lugar>(CLAVES.lugares, "/lugares", { limit: 200 });
 }
 
 /** Un lugar por identificador: el nombre del sitio donde se hace el evento. */
