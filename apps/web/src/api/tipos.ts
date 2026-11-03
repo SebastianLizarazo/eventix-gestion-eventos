@@ -77,6 +77,9 @@ export type CanalNotificacion = "email" | "sms" | "push";
 /** Tipo de pregunta de la encuesta post evento. */
 export type TipoPregunta = "escala" | "abierta";
 
+/** Estado del ticket: por el que pasa desde que se emite hasta que se anula. */
+export type EstadoTicket = "emitido" | "usado" | "anulado";
+
 /**
  * Evento: el documento central de la colección `eventos`.
  *
@@ -330,11 +333,178 @@ export type PreferenciasUsuario = {
 };
 
 /**
- * Estadísticas del usuario: los contadores que el sistema lleva sobre su
+ * Estadísticas del usuario: los contadores que la API lleva sobre su
  * historial de compras y asistencia.
  */
 export type EstadisticasUsuario = {
   eventos_asistidos: number;
   tickets_comprados: number;
   ltv_cop: number;
+};
+
+/**
+ * Reporting operativo: las cuatro vistas del documento 01 §7.1.
+ *
+ * A diferencia del resto, **ninguno de estos tipos es un documento**: son
+ * vistas que la API calcula y devuelve ya agregadas. El dashboard y el ranking
+ * se resuelven con una sola lectura sobre `eventos` (que embeba sus tipos de
+ * ticket y sus métricas), y el cierre contable y la exportación de asistentes
+ * se derivan de `transacciones` y de `tickets` sin unir colecciones.
+ *
+ * Que sean vistas se nota en las formas: no tienen `_id`, no tienen `creado_en`
+ * y su `ocupacion_pct` viene con dos decimales (26.67), no como un entero.
+ */
+
+/**
+ * Ocupación de un tipo de ticket: lo vendido sobre lo que había.
+ *
+ * Es el mismo dato que la ficha de evento muestra, pero **calculado**: aquí la
+ * API lo agrega, y no viene embebido en el documento.
+ */
+export type OcupacionTipoTicket = {
+  tipo_ticket_id: string;
+  nombre: string;
+  precio_cop: number;
+  aforo_total: number;
+  aforo_vendido: number;
+  ocupacion_pct: number;
+};
+
+/**
+ * Dashboard live de un evento.
+ *
+ * `metricas.ultima_actualizacion` es `null` cuando el evento todavía no tiene
+ * métricas calculadas: es un dato ausente, no un error.
+ */
+export type DashboardEvento = {
+  evento_id: string;
+  nombre: string;
+  slug: string;
+  estado: EstadoEvento;
+  fecha_inicio: string;
+  fecha_fin: string;
+  metricas: MetricasDashboard;
+  tipos_ticket: OcupacionTipoTicket[];
+  aforo_total: number;
+  aforo_vendido: number;
+  ocupacion_pct: number;
+};
+
+/** Métricas del dashboard: los contadores que el sistema lleva del evento. */
+export type MetricasDashboard = {
+  tickets_vendidos_total: number;
+  ingresos_cop: number;
+  ultima_actualizacion: string | null;
+};
+
+/**
+ * Cantidad y monto de un estado de transacción.
+ *
+ * Aparece en el cierre contable por estado y por día, y en los totales.
+ */
+export type ResumenEstado = {
+  cantidad: number;
+  monto_cop: number;
+};
+
+/**
+ * Estado contable de una transacción.
+ *
+ * El esquema es **cerrado**: los cinco estados siempre vienen, aunque valgan
+ * cero. Un cierre que a veces trae un estado y a veces no obligaría al
+ * cliente a preguntar si falta el estado o si de verdad no hubo ninguno.
+ */
+export type EstadoContable = "pendiente" | "aprobada" | "rechazada" | "anulada" | "reembolsada";
+
+/**
+ * Un día del cierre contable.
+ *
+ * `dia` es una fecha de calendario en UTC, con formato `YYYY-MM-DD`. El
+ * `neto_cop` **puede ser negativo**: un día con más devoluciones que cobros
+ * cierra en rojo, y esconderlo en un campo sin signo mentiría.
+ */
+export type DiaContable = {
+  dia: string;
+  por_estado: Record<EstadoContable, ResumenEstado>;
+  neto_cop: number;
+};
+
+/** Totales del cierre contable: lo mismo que un `DiaContable`, sin desglose. */
+export type TotalesContables = {
+  cantidad: number;
+  monto_cop: number;
+  neto_cop: number;
+};
+
+/**
+ * Cierre contable diario.
+ *
+ * El cierre es **global**: `transacciones` no guarda el evento, así que un
+ * desglose por evento exigiría unir cada transacción con su ticket.
+ *
+ * `desde` y `hasta` son los límites **normalizados** que devolvió la API (en
+ * ISO 8601), o `null` cuando no se filtró: no son necesariamente los que se
+ * escribieron en el formulario.
+ */
+export type CierreContable = {
+  desde: string | null;
+  hasta: string | null;
+  dias: DiaContable[];
+  /** Transacciones que todavía no tienen fecha de confirmación. */
+  pendientes_sin_confirmar: ResumenEstado;
+  totales: TotalesContables;
+};
+
+/**
+ * Un evento dentro del ranking de más vendidos.
+ *
+ * Solo entran los eventos **operativos** (publicados o finalizados): un
+ * borrador no vendió nada y uno cancelado no se va a vender.
+ */
+export type EventoRanking = {
+  evento_id: string;
+  nombre: string;
+  slug: string;
+  estado: EstadoEvento;
+  fecha_inicio: string;
+  tickets_vendidos_total: number;
+  ingresos_cop: number;
+  aforo_total: number;
+  aforo_vendido: number;
+  ocupacion_pct: number;
+  tipos_ticket: OcupacionTipoTicket[];
+};
+
+/** El ranking de más vendidos, con el límite que la API aplicó. */
+export type RankingVendidos = {
+  items: EventoRanking[];
+  limite: number;
+};
+
+/**
+ * Un asistente en la exportación.
+ *
+ * Los datos del asistente y del tipo de ticket son los **snapshots** que
+ * guarda el ticket: la exportación no une `usuarios` ni `eventos`, así que
+ * dice lo que decía el ticket cuando se emitió.
+ */
+export type Asistente = {
+  ticket_id: string;
+  codigo_qr: string;
+  estado: EstadoTicket;
+  tipo_ticket: {
+    tipo_ticket_id: string;
+    nombre: string;
+    precio_cop: number;
+  };
+  asistente: {
+    usuario_id: string;
+    nombre: string;
+    documento_identidad: string;
+    email: string;
+  };
+  precio_pagado_cop: number;
+  promocion_aplicada_codigo: string | null;
+  emitido_en: string;
+  validado_en: string | null;
 };

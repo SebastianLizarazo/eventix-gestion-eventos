@@ -1,5 +1,5 @@
-import type { EstadoEvento, VisibilidadEvento } from "@/api/tipos";
-import { ETIQUETA_ESTADO, ETIQUETA_VISIBILIDAD } from "@/formato/vocabularios";
+import type { EstadoEvento, EstadoTicket, VisibilidadEvento } from "@/api/tipos";
+import { ETIQUETA_ESTADO, ETIQUETA_ESTADO_TICKET, ETIQUETA_VISIBILIDAD } from "@/formato/vocabularios";
 
 /**
  * Distintivos del vocabulario del dominio.
@@ -22,6 +22,12 @@ const COLOR_VISIBILIDAD: Record<VisibilidadEvento, string> = {
   privado: "bg-indigo-100 text-indigo-800",
 };
 
+const COLOR_ESTADO_TICKET: Record<EstadoTicket, string> = {
+  emitido: "bg-sky-100 text-sky-800",
+  usado: "bg-emerald-100 text-emerald-800",
+  anulado: "bg-rose-100 text-rose-800",
+};
+
 /** El distintivo del estado de un evento. */
 export function DistintivoEstado({ estado }: { estado: EstadoEvento }) {
   return (
@@ -40,6 +46,22 @@ export function DistintivoVisibilidad({ visibilidad }: { visibilidad: Visibilida
       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_VISIBILIDAD[visibilidad]}`}
     >
       {ETIQUETA_VISIBILIDAD[visibilidad]}
+    </span>
+  );
+}
+
+/**
+ * El distintivo del estado de un ticket.
+ *
+ * Es el que dice si el asistente todavía no usó su entrada, si la usó o si la
+ * entrada quedó anulada.
+ */
+export function DistintivoEstadoTicket({ estado }: { estado: EstadoTicket }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_ESTADO_TICKET[estado]}`}
+    >
+      {ETIQUETA_ESTADO_TICKET[estado]}
     </span>
   );
 }

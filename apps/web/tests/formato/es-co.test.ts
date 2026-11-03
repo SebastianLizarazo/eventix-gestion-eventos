@@ -61,3 +61,32 @@ describe("formateadores es-CO", () => {
     expect(aCampoFechaHora("no-es-fecha")).toBe("");
   });
 });
+
+/**
+ * Formateo de los valores propios del reporting.
+ *
+ * Los reportes traen tres cosas que el resto de la interfaz no formatea: el
+ * **día** del cierre contable (una fecha de calendario, sin hora ni zona), el
+ * **porcentaje** de ocupación (que la API calcula con dos decimales) y el
+ * **neto** contable (que puede ser negativo, porque un día con más
+ * devoluciones que cobros cierra en rojo).
+ */
+describe("formateo de los valores de los reportes", () => {
+  it("muestra el día del cierre contable como fecha de calendario", () => {
+    expect(formatearFecha("2023-05-14")).toBe("14/05/2023");
+    expect(formatearFecha("2023-07-01")).toBe("01/07/2023");
+  });
+
+  it("muestra la ocupación con sus decimales", () => {
+    // En `es-CO` el separador decimal es la coma: la ocupación del 26.67 % se
+    // lee "26,67 %".
+    expect(formatearPorcentaje(26.67)).toBe("26,67 %");
+    expect(formatearPorcentaje(75)).toBe("75 %");
+    expect(formatearPorcentaje(0)).toBe("0 %");
+  });
+
+  it("muestra el neto contable en rojo cuando es negativo", () => {
+    expect(formatearMoneda(-30000)).toBe("COP -30.000");
+    expect(formatearMoneda(150000)).toBe("COP 150.000");
+  });
+});

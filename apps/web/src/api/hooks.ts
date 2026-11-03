@@ -6,7 +6,19 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { apiClient } from "./cliente";
-import type { EntradaPromocion, Evento, Lugar, Pagina, Promocion, Salud } from "./tipos";
+import type {
+  Asistente,
+  CierreContable,
+  DashboardEvento,
+  EntradaPromocion,
+  EstadoTicket,
+  Evento,
+  Lugar,
+  Pagina,
+  Promocion,
+  RankingVendidos,
+  Salud,
+} from "./tipos";
 
 /**
  * Capa de datos: los hooks de React Query sobre el cliente HTTP.
@@ -38,7 +50,29 @@ export const CLAVES = {
   usuarios: ["usuarios"],
   lugares: ["lugares"],
   auditoria: ["auditoria"],
+  reportes: ["reportes"],
 } as const;
+
+/**
+ * Una consulta que no es una lista ni un detalle: una vista con parámetros.
+ *
+ * Los reportes son exactamente eso —vistas agregadas con sus filtros—, así que
+ * esta es la forma que comparten. Con `habilitada: false` la consulta queda
+ * apagada: es lo que permite que un componente pida un reporte solo cuando ya
+ * sabe qué evento tiene.
+ */
+export function useConsultar<T>(
+  clave: readonly unknown[],
+  ruta: string,
+  filtros?: FiltrosLista,
+  opciones?: { habilitada?: boolean },
+): UseQueryResult<T, Error> {
+  return useQuery({
+    queryKey: [...clave, filtros ?? {}],
+    queryFn: ({ signal }) => apiClient.obtener<T>(ruta, { query: filtros, signal }),
+    enabled: opciones?.habilitada ?? true,
+  });
+}
 
 /**
  * Una lista paginada de cualquier recurso.
@@ -52,10 +86,7 @@ export function useListar<T>(
   ruta: string,
   filtros?: FiltrosLista,
 ): UseQueryResult<Pagina<T>, Error> {
-  return useQuery({
-    queryKey: [...clave, filtros ?? {}],
-    queryFn: ({ signal }) => apiClient.obtener<Pagina<T>>(ruta, { query: filtros, signal }),
-  });
+  return useConsultar<Pagina<T>>(clave, ruta, filtros);
 }
 
 /**
@@ -212,5 +243,71 @@ export function useEditarPromocion(eventoId: string) {
     ({ codigo, cambios }) =>
       apiClient.editar<Promocion>(`/eventos/${eventoId}/promociones/${codigo}`, cambios),
     { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
+}
+
+/**
+ * Dashboard live de un evento.
+ *
+ * Se resuelve con **una sola lectura** sobre `eventos`: el evento embeba sus
+ * tipos de ticket y sus métricas, así que el dashboard no necesita unir
+ * colecciones.
+ */
+export function useDashboardEvento(
+  eventoId: string | null,
+): UseQueryResult<DashboardEvento, Error> {
+  return useDetalle<DashboardEvento>(
+    [...CLAVES.reportes, "dashboard", eventoId],
+    eventoId === null ? null : `/reportes/eventos/${eventoId}/dashboard`,
+  );
+}
+
+/**
+ * Cierre contable diario.
+ *
+ * `desde` y `hasta` son fechas de calendario (`YYYY-MM-DD`): la API las
+ * interpreta como UTC y devuelve los límites ya normalizados.
+ */
+export function useCierreContable(filtros?: {
+  desde?: string;
+  hasta?: string;
+}): UseQueryResult<CierreContable, Error> {
+  return useConsultar<CierreContable>(
+    [...CLAVES.reportes, "cierre-contable"],
+    "/reportes/cierre-contable",
+    { desde: filtros?.desde, hasta: filtros?.hasta },
+  );
+}
+
+/**
+ * Ranking de los eventos más vendidos.
+ *
+ * Solo entran los eventos operativos (publicados o finalizados). La API acota
+ * el límite entre 1 y 100.
+ */
+export function useRankingVendidos(limite = 10): UseQueryResult<RankingVendidos, Error> {
+  return useConsultar<RankingVendidos>(
+    [...CLAVES.reportes, "mas-vendidos"],
+    "/reportes/mas-vendidos",
+    { limite },
+  );
+}
+
+/**
+ * Página de asistentes de un evento.
+ *
+ * El filtro por estado es opcional, y **vacío no es un valor**: la API lo lee
+ * como vocabulario cerrado, así que "todos los estados" es la ausencia del
+ * parámetro, no una cadena vacía.
+ */
+export function useAsistentes(
+  eventoId: string | null,
+  filtros?: { estado?: EstadoTicket; skip?: number; limit?: number },
+): UseQueryResult<Pagina<Asistente>, Error> {
+  return useConsultar<Pagina<Asistente>>(
+    [...CLAVES.reportes, "asistentes", eventoId],
+    `/reportes/asistentes/${eventoId}`,
+    { estado: filtros?.estado, skip: filtros?.skip, limit: filtros?.limit ?? 50 },
+    { habilitada: eventoId !== null },
   );
 }

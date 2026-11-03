@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useCrearPromocion, useEvento, useEventos, usePromociones } from "@/api/hooks";
+import { useAsistentes, useCierreContable, useCrearPromocion, useDashboardEvento, useEvento, useEventos, usePromociones, useRankingVendidos } from "@/api/hooks";
 
 /**
  * Pruebas de los hooks de eventos.
@@ -50,6 +50,102 @@ const PROMOCION = {
   activo: true,
 };
 
+/**
+ * El dashboard live del evento, con la forma real del contrato.
+ *
+ * La ocupación viene con dos decimales (75 no, 26.67 sí): es un porcentaje
+ * calculado, no un entero.
+ */
+const DASHBOARD = {
+  evento_id: ID_EVENTO,
+  nombre: "Concierto de rock",
+  slug: "concierto-de-rock",
+  estado: "publicado",
+  fecha_inicio: "2023-07-01T09:12:00.000Z",
+  fecha_fin: "2023-07-01T12:00:00.000Z",
+  metricas: {
+    tickets_vendidos_total: 150,
+    ingresos_cop: 18000000,
+    ultima_actualizacion: null,
+  },
+  tipos_ticket: [
+    {
+      tipo_ticket_id: "65a0000000000000000000d1",
+      nombre: "General",
+      precio_cop: 120000,
+      aforo_total: 200,
+      aforo_vendido: 150,
+      ocupacion_pct: 75,
+    },
+  ],
+  aforo_total: 200,
+  aforo_vendido: 150,
+  ocupacion_pct: 75,
+};
+
+/** El cierre contable de un día, con los cinco estados siempre presentes. */
+const CIERRE = {
+  desde: null,
+  hasta: null,
+  dias: [
+    {
+      dia: "2023-07-01",
+      por_estado: {
+        pendiente: { cantidad: 0, monto_cop: 0 },
+        aprobada: { cantidad: 2, monto_cop: 150000 },
+        rechazada: { cantidad: 1, monto_cop: 0 },
+        anulada: { cantidad: 0, monto_cop: 0 },
+        reembolsada: { cantidad: 0, monto_cop: 0 },
+      },
+      neto_cop: 150000,
+    },
+  ],
+  pendientes_sin_confirmar: { cantidad: 1, monto_cop: 10000 },
+  totales: { cantidad: 3, monto_cop: 150000, neto_cop: 150000 },
+};
+
+/** El ranking de más vendidos. */
+const RANKING = {
+  items: [
+    {
+      evento_id: ID_EVENTO,
+      nombre: "Concierto de rock",
+      slug: "concierto-de-rock",
+      estado: "publicado",
+      fecha_inicio: "2023-07-01T09:12:00.000Z",
+      tickets_vendidos_total: 150,
+      ingresos_cop: 18000000,
+      aforo_total: 200,
+      aforo_vendido: 150,
+      ocupacion_pct: 75,
+      tipos_ticket: DASHBOARD.tipos_ticket,
+    },
+  ],
+  limite: 10,
+};
+
+/** Un asistente en la exportación, con los snapshots que guarda el ticket. */
+const ASISTENTE = {
+  ticket_id: "65a0000000000000000000e1",
+  codigo_qr: "QR-EMITIDO-1",
+  estado: "emitido",
+  tipo_ticket: {
+    tipo_ticket_id: "65a0000000000000000000d1",
+    nombre: "General",
+    precio_cop: 120000,
+  },
+  asistente: {
+    usuario_id: "65a0000000000000000000b2",
+    nombre: "Ana Asistente",
+    documento_identidad: "CC-1000001",
+    email: "asistente@eventix.test",
+  },
+  precio_pagado_cop: 120000,
+  promocion_aplicada_codigo: null,
+  emitido_en: "2023-07-01T10:00:00.000Z",
+  validado_en: null,
+};
+
 /** Red falsa: responde con la forma real del contrato y anota lo que se pidió. */
 function crearRed() {
   const peticiones: string[] = [];
@@ -61,6 +157,24 @@ function crearRed() {
 
     if (url.endsWith("/promociones")) {
       return [PROMOCION];
+    }
+
+    // Los reportes van **antes** que los eventos: la ruta del dashboard
+    // contiene `/eventos`, y sin este orden la devolvería el evento.
+    if (url.includes("/reportes/eventos/")) {
+      return DASHBOARD;
+    }
+
+    if (url.includes("/reportes/cierre-contable")) {
+      return CIERRE;
+    }
+
+    if (url.includes("/reportes/mas-vendidos")) {
+      return RANKING;
+    }
+
+    if (url.includes("/reportes/asistentes/")) {
+      return { items: [ASISTENTE], total: 1, skip: 0, limit: 50 };
     }
 
     if (url.includes(`/eventos/${ID_EVENTO}`)) {
@@ -194,5 +308,120 @@ describe("hooks de eventos", () => {
         peticiones.filter((url) => url.includes(`/api/eventos/${ID_EVENTO}`)).length,
       ).toBeGreaterThan(lecturasAntes),
     );
+  });
+});
+
+describe("hooks de reportes", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("pide el dashboard live del evento que se le indica", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(() => useDashboardEvento(ID_EVENTO), {
+      wrapper: envoltorio(clienteDePrueba()),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.nombre).toBe("Concierto de rock");
+    expect(result.current.data?.ocupacion_pct).toBe(75);
+    expect(
+      peticiones.some((url) => url.endsWith(`/api/reportes/eventos/${ID_EVENTO}/dashboard`)),
+    ).toBe(true);
+  });
+
+  it("pide el cierre contable con el rango que se le indica", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(
+      () => useCierreContable({ desde: "2023-07-01", hasta: "2023-07-31" }),
+      { wrapper: envoltorio(clienteDePrueba()) },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const peticion = peticiones.find((url) => url.includes("/api/reportes/cierre-contable"));
+
+    expect(peticion).toBeDefined();
+    expect(peticion).toContain("desde=2023-07-01");
+    expect(peticion).toContain("hasta=2023-07-31");
+  });
+
+  it("no manda rango al cierre contable cuando no se filtra", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(() => useCierreContable(), {
+      wrapper: envoltorio(clienteDePrueba()),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const peticion = peticiones.find((url) => url.includes("/api/reportes/cierre-contable"));
+
+    expect(peticion).toBeDefined();
+    expect(peticion).not.toContain("desde=");
+    expect(peticion).not.toContain("hasta=");
+  });
+
+  it("pide el ranking con el límite que se le indica", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(() => useRankingVendidos(5), {
+      wrapper: envoltorio(clienteDePrueba()),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const peticion = peticiones.find((url) => url.includes("/api/reportes/mas-vendidos"));
+
+    expect(peticion).toBeDefined();
+    expect(peticion).toContain("limite=5");
+    expect(result.current.data?.items[0]?.nombre).toBe("Concierto de rock");
+  });
+
+  it("pide los asistentes con su filtro y su paginación", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(
+      () => useAsistentes(ID_EVENTO, { estado: "usado", skip: 20, limit: 10 }),
+      { wrapper: envoltorio(clienteDePrueba()) },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const peticion = peticiones.find((url) => url.includes("/api/reportes/asistentes/"));
+
+    expect(peticion).toBeDefined();
+    expect(peticion).toContain("estado=usado");
+    expect(peticion).toContain("skip=20");
+    expect(peticion).toContain("limit=10");
+    expect(result.current.data?.items[0]?.codigo_qr).toBe("QR-EMITIDO-1");
+  });
+
+  it("no pide asistentes cuando todavía no hay evento", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const { result } = renderHook(() => useAsistentes(null), {
+      wrapper: envoltorio(clienteDePrueba()),
+    });
+
+    await waitFor(() => expect(result.current.fetchStatus).toBe("idle"));
+
+    expect(peticiones.some((url) => url.includes("/api/reportes/asistentes"))).toBe(false);
   });
 });
