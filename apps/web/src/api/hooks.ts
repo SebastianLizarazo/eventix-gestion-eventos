@@ -6,7 +6,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { apiClient } from "./cliente";
-import type { Evento, Pagina, Salud } from "./tipos";
+import type { EntradaPromocion, Evento, Lugar, Pagina, Promocion, Salud } from "./tipos";
 
 /**
  * Capa de datos: los hooks de React Query sobre el cliente HTTP.
@@ -154,4 +154,63 @@ export function useEventos(filtros?: FiltrosLista): UseQueryResult<Pagina<Evento
 /** Un evento por identificador. */
 export function useEvento(id: string | null): UseQueryResult<Evento, Error> {
   return useDetalle<Evento>([...CLAVES.eventos, id], id === null ? null : `/eventos/${id}`);
+}
+
+/**
+ * Lugares: la lista que el catálogo usa para filtrar y para poner nombre a los
+ * eventos.
+ *
+ * La colección de lugares es pequeña y cabe en una página: por eso se pide
+ * entera y no en trozos. El límite es el máximo que acepta la API (200), y da
+ * de sobra para los 120 lugares del dataset.
+ */
+export function useLugares(): UseQueryResult<Pagina<Lugar>, Error> {
+  return useListar<Lugar>(CLAVES.lugares, "/lugares", { limit: 200 });
+}
+
+/** Un lugar por identificador: el nombre del sitio donde se hace el evento. */
+export function useLugar(id: string | null): UseQueryResult<Lugar, Error> {
+  return useDetalle<Lugar>([...CLAVES.lugares, id], id === null ? null : `/lugares/${id}`);
+}
+
+/**
+ * Promociones de un evento.
+ *
+ * Se leen por su propio endpoint (`/eventos/{id}/promociones`) y no del
+ * documento del evento: así la lista de promociones se invalida sola cuando una
+ * de ellas cambia, sin tener que releer el evento entero.
+ */
+export function usePromociones(eventoId: string | null): UseQueryResult<Promocion[], Error> {
+  return useDetalle<Promocion[]>(
+    [...CLAVES.eventos, eventoId, "promociones"],
+    eventoId === null ? null : `/eventos/${eventoId}/promociones`,
+  );
+}
+
+/**
+ * Alta de una promoción en un evento.
+ *
+ * Al terminar bien invalida el prefijo `["eventos", eventoId]`: eso cubre la
+ * ficha del evento y la lista de sus promociones, que es lo único que cambia.
+ */
+export function useCrearPromocion(eventoId: string) {
+  return useMutar<EntradaPromocion, Promocion>(
+    (entrada) => apiClient.crear<Promocion>(`/eventos/${eventoId}/promociones`, entrada),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
+}
+
+/**
+ * Edición de una promoción de un evento.
+ *
+ * La promoción se identifica por su código en la ruta, y el cuerpo son los
+ * campos que cambian: el código también se puede editar, y en ese caso la API
+ * renombra la promoción en el mismo movimiento.
+ */
+export function useEditarPromocion(eventoId: string) {
+  return useMutar<{ codigo: string; cambios: EntradaPromocion }, Promocion>(
+    ({ codigo, cambios }) =>
+      apiClient.editar<Promocion>(`/eventos/${eventoId}/promociones/${codigo}`, cambios),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
 }

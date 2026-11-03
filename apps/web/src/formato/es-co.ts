@@ -100,3 +100,72 @@ export function formatearPorcentaje(valor: number | null | undefined): string {
 
   return `${formatoNumero.format(valor)} %`;
 }
+
+/**
+ * Forma del valor de un `<input type="datetime-local">`: `aaaa-mm-ddThh:mm`.
+ *
+ * El campo del navegador **no lleva zona**: son fecha y hora de calendario, sin
+ * instante. Por eso el patrón acepta los segundos como opcionales.
+ */
+const PATRON_CAMPO_HORA = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/**
+ * Convierte el valor de un campo de fecha y hora en un instante ISO UTC.
+ *
+ * La conversión es **manual y determinista** (igual que el parseo de fechas del
+ * lado de la API): `new Date("2026-03-15T14:30")` se interpretaría en la zona
+ * horaria **local** de quien tiene el navegador abierto, así que el mismo
+ * formulario produciría instantes distintos en cada máquina. Como la interfaz
+ * muestra las fechas en UTC, el campo se lee como UTC.
+ *
+ * Devuelve `null` cuando el valor no es un campo de fecha y hora válido: un
+ * campo vacío o mal escrito no es una fecha, y la API es quien juzga si el
+ * instante resultante existe.
+ */
+export function aIsoUtcDesdeCampo(valor: string): string | null {
+  const coincidencia = PATRON_CAMPO_HORA.exec(valor.trim());
+
+  if (!coincidencia) {
+    return null;
+  }
+
+  const [, anio, mes, dia, hora, minuto, segundo = "00"] = coincidencia;
+  const mesNumero = Number(mes);
+  const diaNumero = Number(dia);
+  const horaNumero = Number(hora);
+  const minutoNumero = Number(minuto);
+  const segundoNumero = Number(segundo);
+
+  if (mesNumero < 1 || mesNumero > 12) {
+    return null;
+  }
+
+  if (diaNumero < 1 || diaNumero > 31) {
+    return null;
+  }
+
+  if (horaNumero > 23 || minutoNumero > 59 || segundoNumero > 59) {
+    return null;
+  }
+
+  return `${anio}-${mes}-${dia}T${hora}:${minuto}:${segundo}.000Z`;
+}
+
+/**
+ * Convierte un instante ISO en el valor que espera un campo de fecha y hora.
+ *
+ * La conversión es la inversa de `aIsoUtcDesdeCampo` y usa la misma zona (UTC),
+ * de modo que el campo muestra exactamente la fecha y la hora que la interfaz
+ * muestra en pantalla.
+ */
+export function aCampoFechaHora(valor: string | Date | null | undefined): string {
+  const fecha = aFecha(valor);
+
+  if (fecha === null) {
+    return "";
+  }
+
+  const iso = fecha.toISOString();
+
+  return `${iso.slice(0, 10)}T${iso.slice(11, 16)}`;
+}

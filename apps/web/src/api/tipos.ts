@@ -154,9 +154,28 @@ export type Promocion = {
 };
 
 /**
+ * Promoción que acepta el cliente: la misma que se persiste, sin el contador
+ * de usos.
+ *
+ * `usos_realizados` lo lleva el sistema —lo incrementa el flujo de compra—, así
+ * que un cliente no puede escribirlo: la API lo ignora aunque venga en el
+ * cuerpo.
+ */
+export type EntradaPromocion = {
+  codigo: string;
+  tipo: TipoPromocion;
+  valor: number;
+  aplica_a_tipo_ticket_ids: string[];
+  vigencia_inicio: string;
+  vigencia_fin: string;
+  usos_maximos?: number;
+  activo: boolean;
+};
+
+/**
  * Configuración del evento: el bloque flexible que cambia según el tipo.
  *
- * Cada bloque es opcional porque no todos los tipos de evento lo usan: el
+ * Cada bloque es opcional porque no todos los tipos de evento lo usa: el
  * bloque `academico` solo existe en eventos de tipo `academico`, y el
  * `hibrido` solo en los híbridos.
  */
