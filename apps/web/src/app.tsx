@@ -3,6 +3,7 @@ import { Catalogo } from "@/pantallas/catalogo";
 import { Evento } from "@/pantallas/evento";
 import { Inicio } from "@/pantallas/inicio";
 import { NoEncontrada } from "@/pantallas/no-encontrada";
+import { Reportes } from "@/pantallas/reportes";
 import { Layout } from "@/ui/layout";
 
 /**
@@ -19,6 +20,7 @@ export function App() {
           <Route path="/" element={<Inicio />} />
           <Route path="/catalogo" element={<Catalogo />} />
           <Route path="/eventos/:id" element={<Evento />} />
+          <Route path="/reportes" element={<Reportes />} />
           <Route path="*" element={<NoEncontrada />} />
         </Route>
       </Routes>
