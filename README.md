@@ -42,7 +42,7 @@ Hay que volver a levantarlo a mano con `up`.
 
 ## Arranque local — con pnpm
 
-Requiere Node >= 20, pnpm >= 12 (el proyecto **no** usa npm) y Docker (para MongoDB).
+Requiere Node >= 22.12, pnpm >= 12 (el proyecto **no** usa npm) y Docker (para MongoDB).
 
 ```bash
 pnpm install
@@ -50,8 +50,13 @@ pnpm mongo:up                      # MongoDB 7.x en replica set rs0 (espera PRIM
 cp apps/api/.env.example apps/api/.env
 pnpm db:setup                      # colecciones, validadores e índices
 pnpm seed --scale=dev              # dataset sintético
-pnpm dev                           # API en http://localhost:3000
+pnpm dev                           # API en http://localhost:3000 + web en http://localhost:5173
 ```
+
+`pnpm dev` levanta los dos procesos del workspace en paralelo. La web habla con
+la API **por el mismo origen**: el servidor de Vite hace proxy de `/api` hacia
+`localhost:3000`, así que el navegador nunca hace una petición cruzada y no
+hace falta CORS.
 
 El paso `cp` importa: `.env` no está versionado y el proyecto no tiene valores por
 defecto que apunten a otra máquina.
