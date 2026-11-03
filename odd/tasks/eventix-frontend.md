@@ -30,8 +30,8 @@
 
 ### S4 — Alcance funcional de la interfaz
 
-- **Alcance autorizado:** la decisión del usuario fue **"Showcase + compra + gestión de eventos (Recomendado)"**. Queda dentro: catálogo público de eventos, ficha de evento con su configuración flexible por tipo, dashboard en vivo, los cuatro reportes, compra de tickets con promoción, y alta/edición/baja de eventos con sus tipos de ticket y promociones. Queda **fuera del alcance de escritura**: `usuarios`, `tickets`, `transacciones` y `auditoria_eventos` (se consultan en tablas de solo lectura, con filtros y paginación).
-- **Criterios de aceptación:** las cinco pantallas de escritura (compra, evento, tipo de ticket, promoción) persisten contra la API real; las cuatro colecciones de solo lectura no ofrecen botón de escritura.
+- **Alcance autorizado:** la decisión del usuario fue **"Showcase + compra + gestión de eventos (Recomendado)"**. Queda dentro: catálogo público de eventos, ficha de evento con su configuración flexible por tipo, dashboard en vivo, los cuatro reportes, compra de tickets con promoción, alta/edición/baja de eventos con sus tipos de ticket y promociones, y una pantalla que muestra el contrato OpenAPI que la API ya publica. Queda **fuera del alcance de escritura**: `usuarios`, `tickets`, `transacciones` y `auditoria_eventos` (se consultan en tablas de solo lectura, con filtros y paginación).
+- **Criterios de aceptación:** las cinco pantallas de escritura (compra, evento, tipo de ticket, promoción) persisten contra la API real; las cuatro colecciones de solo lectura no ofrecen botón de escritura; la pantalla de contrato lista las 27 rutas del contrato publicado.
 - **Checks:** recorrido manual de las cuatro consultas de reporting del documento 01 §7.1 contra la UI.
 
 ### S5 — Un solo origen: proxy, no CORS
@@ -88,6 +88,13 @@
 - **Criterios de aceptación:** ninguna tarea queda en `pendiente` sin nota; al retomar una sesión se lee el `## Log` antes de escribir código.
 - **Checks:** revisión del `## Log` al inicio de cada sesión.
 
+### S14 — Pantalla de contrato de la API
+
+- **Alcance autorizado:** la decisión del usuario fue **"Sí, agregarla (Recomendado)"**: una pantalla de solo lectura que renderiza el contrato OpenAPI 3.1 que la API **ya publica** en `/api/openapi.json`. Muestra las **27 rutas**, lo que hace cada una, los esquemas de las seis colecciones (sus campos, catálogos y límites) y los códigos de error del contrato único. **La API no se toca para esto**: la UI solo consume el JSON que ya se sirve.
+- **Criterios de aceptación:** la pantalla lista las 27 rutas agrupadas por recurso; al abrir una, se ve su operación (método, resumen, parámetros) y el esquema del recurso; los esquemas y catálogos que se muestran salen del documento descargado, no de una lista escrita a mano en la UI.
+- **Checks:** test que renderiza la pantalla contra el `openapi.json` real y verifica que aparecen las 27 rutas y los esquemas de las seis colecciones; el `request_id` de un error del contrato se muestra como en el resto de la UI.
+- **Razón (decisión del orquestador):** en una demo de frontend el backend es invisible, y el contrato es donde se ve el **modelo de datos** — que es lo que se califica en una materia de base de datos. No cuesta nada: el spec ya existe, ya está servido y ya está testeado; es una página que lo consume.
+
 ---
 
 ## Tasks
@@ -119,8 +126,9 @@
 | T4.2 | S4 | H4 · Gestión de eventos | Formulario de tipos de ticket: precio, aforo y restricciones | inline | none | pendiente | — |
 | T4.3 | S4 | H4 · Gestión de eventos | Formulario de promociones: porcentaje, 2×1, early-bird, vigencia y usos máximos | inline | none | pendiente | — |
 | T4.4 | S4 | H4 · Gestión de eventos | Tests RED→GREEN del CRUD de eventos | inline | none | pendiente | — |
-| T5.1 | S4 | H5 · Explorador | Tablas de solo lectura de usuarios, tickets, transacciones y auditoría, con filtros y paginación | inline | none | pendiente | — |
-| T5.2 | S4 | H5 · Explorador | Tests RED→GREEN de los hooks de lectura y del 405 de auditoría | inline | none | pendiente | — |
+| T5.1 | S4 | H5 · Exploradores | Tablas de solo lectura de usuarios, tickets, transacciones y auditoría, con filtros y paginación | inline | none | pendiente | — |
+| T5.2 | S14 | H5 · Exploradores | Pantalla de contrato de la API: renderiza `/api/openapi.json` (27 rutas, esquemas de las seis colecciones, códigos de error) | inline | none | pendiente | — |
+| T5.3 | S4,S14 | H5 · Exploradores | Tests RED→GREEN de los hooks de lectura, del 405 de auditoría y del render del contrato | inline | none | pendiente | — |
 | T6.1 | S8 | H6 · Entrega | Dockerfile + nginx de `apps/web` (SPA + proxy `/api`) y servicio `web` en el compose de entrega, publicado solo en `127.0.0.1` | inline | item 5, item 2 | pendiente | — |
 | T6.2 | S8 | H6 · Entrega | Runbook verificado: local con `pnpm dev` y entrega con compose (una URL) | inline | none | pendiente | — |
 | T6.3 | S12 | H6 · Entrega | `docs/06-interfaz-web.md`, fila nueva en `docs/README.md` y README raíz | inline | none | pendiente | — |
@@ -144,3 +152,4 @@
 - **L11 — 2026-11-03 — Convenciones heredadas:** se mantiene el patrón del roadmap del ítem 5: specs con alcance y criterios, tareas con ruta (inline/delegated) y línea de riesgo, y este `## Log` como registro vivo. El test-first del proyecto sigue igual: **RED→GREEN** por regla, un test por regla, y el que escribe es el que corre la prueba. El dialecto técnico (código, comentarios, mensajes de la UI) va en español, igual que el resto del repositorio.
 - **L12 — 2026-11-03 — L9 (1) resuelta por el usuario:** la interfaz web es una **parte 06 nueva** del avance, no una ampliación del ítem 5. Consecuencias: el documento de entrega se llama `docs/06-interfaz-web.md`; la tabla "Estructura de la entrega" de `docs/README.md` suma la fila `06` con el ítem del avance "Interfaz web"; y el resumen ejecutivo de ese archivo suma la fila del acceso por interfaz web. Con esto, **la única pregunta abierta de L9 es la (2)** (si el profesor expone solo la interfaz o también el código de la API), y no bloquea H0–H5: se resuelve antes de H6.
 - **L13 — 2026-11-03 — Escenario de exposición definido por el usuario: "Demo en persona, en mi máquina".** Consecuencias: (1) **no hay despliegue**: ni nube, ni túnel, ni URL pública — el profesor mira la interfaz en la sala, levantada en la máquina del usuario; (2) el **compose de entrega** (T6.1) cumple dos papeles: servir la demo sin Node instalado en la máquina, y permitir que el profesor lo levante por su cuenta si quiere; (3) **no hace falta** mitigación de "base pública escribible" porque no hay exposición a la red: los puertos se siguen publicando en `127.0.0.1` (S8). Con esto queda saldada la diferencia entre **entrega** (existe, es local y reproducible) y **despliegue** (no existe, y es no-objetivo por L7).
+- **L14 — 2026-11-03 — L9 (2) resuelta por el usuario: se agrega la pantalla de contrato de la API** (respuesta: *"Sí, agregarla (Recomendado)"*). Es la **spec S14** y la **tarea T5.2**, dentro de H5, que pasó de "Explorador" a **"Exploradores"** (explorador de datos + explorador del contrato). La tarea de tests de H5 pasó de T5.2 a T5.3 para incluir el render del contrato; no había tareas cerradas, así que la renumeración no afecta trabajo terminado. **Decisión de alcance que sigue fuera del plan:** mostrar en vivo los **planes de ejecución** (`explain`) de las consultas. La API no los expone y exponerlos exigiría cambiar la API —lo que rompe S3 y su test de contrato—, así que esa evidencia se queda en el documento 05 §5, que es donde ya está escrita. Si el profesor la quiere ver en pantalla, es un ítem nuevo con su propio análisis de riesgo.
