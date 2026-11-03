@@ -5,7 +5,7 @@
   "description": "Eventix S.A. — prototipo funcional sobre MongoDB 7.x (ítem 5 del avance)",
   "packageManager": "pnpm@12.11.2",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "pnpm -r --parallel dev",
