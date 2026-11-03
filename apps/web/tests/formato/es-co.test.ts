@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  aCampoFechaHora,
+  aIsoUtcDesdeCampo,
   formatearFecha,
   formatearFechaHora,
   formatearMoneda,
@@ -40,5 +42,22 @@ describe("formateadores es-CO", () => {
     expect(formatearFecha("no-es-fecha")).toBe("—");
     expect(formatearMoneda(Number.NaN)).toBe("—");
     expect(formatearPorcentaje(null)).toBe("—");
+  });
+
+  it("convierte el valor de un campo de fecha y hora en un instante ISO UTC", () => {
+    expect(aIsoUtcDesdeCampo("2026-03-15T14:30")).toBe("2026-03-15T14:30:00.000Z");
+    expect(aIsoUtcDesdeCampo("2026-03-15T14:30:45")).toBe("2026-03-15T14:30:45.000Z");
+  });
+
+  it("rechaza un valor de campo de fecha y hora que no es válido", () => {
+    expect(aIsoUtcDesdeCampo("")).toBeNull();
+    expect(aIsoUtcDesdeCampo("15/03/2026")).toBeNull();
+    expect(aIsoUtcDesdeCampo("2026-03-15T25:00")).toBeNull();
+  });
+
+  it("convierte un instante ISO en el valor de un campo de fecha y hora", () => {
+    expect(aCampoFechaHora("2026-03-15T14:30:00.000Z")).toBe("2026-03-15T14:30");
+    expect(aCampoFechaHora(null)).toBe("");
+    expect(aCampoFechaHora("no-es-fecha")).toBe("");
   });
 });
