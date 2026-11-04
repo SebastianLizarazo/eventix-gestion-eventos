@@ -64,12 +64,7 @@ export function PanelRanking() {
           <label htmlFor="ranking-limite" className="block text-sm font-medium text-slate-700">
             Límite
           </label>
-          <select
-            id="ranking-limite"
-            value={limite}
-            onChange={cambiarLimite}
-            className={CONTROL}
-          >
+          <select id="ranking-limite" value={limite} onChange={cambiarLimite} className={CONTROL}>
             {LIMITES.map((opcion) => (
               <option key={opcion} value={opcion}>
                 {opcion}

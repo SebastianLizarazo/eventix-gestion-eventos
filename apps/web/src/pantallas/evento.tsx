@@ -286,10 +286,7 @@ function Configuracion({ configuracion }: { configuracion: ConfiguracionEvento }
               <h4 className="font-mono text-sm font-semibold text-slate-700">{bloque}</h4>
               <dl className="mt-1 divide-y divide-slate-100">
                 {entradas(campos).map(([nombre, valor]) => (
-                  <div
-                    key={nombre}
-                    className="flex items-baseline justify-between gap-4 py-1"
-                  >
+                  <div key={nombre} className="flex items-baseline justify-between gap-4 py-1">
                     <dt className="font-mono text-sm text-slate-600">{nombre}</dt>
                     <dd className="text-sm font-medium text-slate-900">{valorFlexible(valor)}</dd>
                   </div>
@@ -394,7 +391,11 @@ function Color({ color }: { color: string }) {
 }
 
 /** La encuesta post evento, con sus preguntas. */
-function Encuesta({ encuesta }: { encuesta: NonNullable<ConfiguracionEvento["encuesta_post_evento"]> }) {
+function Encuesta({
+  encuesta,
+}: {
+  encuesta: NonNullable<ConfiguracionEvento["encuesta_post_evento"]>;
+}) {
   return (
     <div>
       <h3 className="text-base font-semibold text-slate-900">Encuesta post evento</h3>

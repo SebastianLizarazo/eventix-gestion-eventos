@@ -91,8 +91,7 @@ export function PanelCierreContable() {
    * llega con menos días), la pantalla no se queda en una página que ya no
    * existe y con la tabla vacía.
    */
-  const totalPaginas =
-    datos === null ? 1 : Math.max(1, Math.ceil(datos.dias.length / POR_PAGINA));
+  const totalPaginas = datos === null ? 1 : Math.max(1, Math.ceil(datos.dias.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
   const diasDeLaPagina =
     datos === null

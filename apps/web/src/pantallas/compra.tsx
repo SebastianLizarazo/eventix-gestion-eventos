@@ -3,7 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { useCompra, useEvento } from "@/api/hooks";
 import { diagnosticoDeCompra } from "@/api/motivos-compra";
 import type { Compra as ResultadoCompra, CompraEntrada, MetodoPago, TipoTicket } from "@/api/tipos";
-import { formatearFecha, formatearFechaHora, formatearMoneda, formatearNumero } from "@/formato/es-co";
+import {
+  formatearFecha,
+  formatearFechaHora,
+  formatearMoneda,
+  formatearNumero,
+} from "@/formato/es-co";
 import { ETIQUETA_ESTADO_CONTABLE, ETIQUETA_METODO_PAGO } from "@/formato/vocabularios";
 import { DistintivoEstado, DistintivoEstadoTicket } from "@/ui/distintivos";
 import { AvisoError, Cargando, Dato, Tarjeta, Vacio } from "@/ui/piezas";
@@ -268,10 +273,7 @@ export function Compra() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label
-                htmlFor="metodo-pago"
-                className="block text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="metodo-pago" className="block text-sm font-medium text-slate-700">
                 Método de pago
               </label>
               <select
@@ -304,10 +306,7 @@ export function Compra() {
             </div>
 
             <div className="space-y-1">
-              <label
-                htmlFor="referencia"
-                className="block text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="referencia" className="block text-sm font-medium text-slate-700">
                 Referencia de la pasarela
               </label>
               <input
@@ -336,10 +335,7 @@ export function Compra() {
           descripcion="El código de una promoción del evento, si la compra lleva una."
         >
           <div className="space-y-1">
-            <label
-              htmlFor="promocion-codigo"
-              className="block text-sm font-medium text-slate-700"
-            >
+            <label htmlFor="promocion-codigo" className="block text-sm font-medium text-slate-700">
               Código de promoción
             </label>
             <input
@@ -416,9 +412,7 @@ export function Compra() {
         </div>
       </form>
 
-      {comprar.isError ? (
-        <AvisoError error={comprar.error} titulo={diagnostico?.titulo} />
-      ) : null}
+      {comprar.isError ? <AvisoError error={comprar.error} titulo={diagnostico?.titulo} /> : null}
 
       {resultado ? (
         <Tarjeta
@@ -440,11 +434,11 @@ export function Compra() {
           ) : null}
 
           <dl className="mt-4 divide-y divide-slate-100">
+            <Dato etiqueta="Tipo de ticket" valor={resultado.ticket.snapshot_tipo_ticket.nombre} />
             <Dato
-              etiqueta="Tipo de ticket"
-              valor={resultado.ticket.snapshot_tipo_ticket.nombre}
+              etiqueta="Precio pagado"
+              valor={formatearMoneda(resultado.ticket.precio_pagado_cop)}
             />
-            <Dato etiqueta="Precio pagado" valor={formatearMoneda(resultado.ticket.precio_pagado_cop)} />
             <Dato
               etiqueta="Asistente"
               valor={`${resultado.ticket.asistente_snapshot.nombre} — ${resultado.ticket.asistente_snapshot.documento_identidad}`}
@@ -466,10 +460,15 @@ export function Compra() {
             <Dato
               etiqueta="Referencia"
               valor={
-                <span className="font-mono text-xs">{resultado.transaccion.referencia_pasarela}</span>
+                <span className="font-mono text-xs">
+                  {resultado.transaccion.referencia_pasarela}
+                </span>
               }
             />
-            <Dato etiqueta="Fecha de emisión" valor={formatearFechaHora(resultado.ticket.emitido_en)} />
+            <Dato
+              etiqueta="Fecha de emisión"
+              valor={formatearFechaHora(resultado.ticket.emitido_en)}
+            />
           </dl>
 
           <div className="mt-4">

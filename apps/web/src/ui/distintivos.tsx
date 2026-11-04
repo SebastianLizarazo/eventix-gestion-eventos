@@ -1,5 +1,9 @@
 import type { EstadoEvento, EstadoTicket, VisibilidadEvento } from "@/api/tipos";
-import { ETIQUETA_ESTADO, ETIQUETA_ESTADO_TICKET, ETIQUETA_VISIBILIDAD } from "@/formato/vocabularios";
+import {
+  ETIQUETA_ESTADO,
+  ETIQUETA_ESTADO_TICKET,
+  ETIQUETA_VISIBILIDAD,
+} from "@/formato/vocabularios";
 
 /**
  * Distintivos del vocabulario del dominio.
@@ -31,9 +35,7 @@ const COLOR_ESTADO_TICKET: Record<EstadoTicket, string> = {
 /** El distintivo del estado de un evento. */
 export function DistintivoEstado({ estado }: { estado: EstadoEvento }) {
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_ESTADO[estado]}`}
-    >
+    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${COLOR_ESTADO[estado]}`}>
       {ETIQUETA_ESTADO[estado]}
     </span>
   );

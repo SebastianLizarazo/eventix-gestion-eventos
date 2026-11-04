@@ -2,7 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useAsistentes, useCierreContable, useCrearPromocion, useDashboardEvento, useEvento, useEventos, usePromociones, useRankingVendidos } from "@/api/hooks";
+import {
+  useAsistentes,
+  useCierreContable,
+  useCrearPromocion,
+  useDashboardEvento,
+  useEvento,
+  useEventos,
+  usePromociones,
+  useRankingVendidos,
+} from "@/api/hooks";
 
 /**
  * Pruebas de los hooks de eventos.
@@ -273,7 +282,9 @@ describe("hooks de eventos", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data?.[0]?.codigo).toBe("VERANO10");
-    expect(peticiones.some((url) => url.endsWith(`/api/eventos/${ID_EVENTO}/promociones`))).toBe(true);
+    expect(peticiones.some((url) => url.endsWith(`/api/eventos/${ID_EVENTO}/promociones`))).toBe(
+      true,
+    );
   });
 
   it("invalida la caché del evento cuando se crea una promoción", async () => {

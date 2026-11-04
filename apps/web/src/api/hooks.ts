@@ -336,7 +336,10 @@ export function useUsuarios(filtros?: FiltrosLista): UseQueryResult<Pagina<Usuar
  * los tickets y las transacciones.
  */
 export function useCompra(): UseMutationResult<Compra, Error, CompraEntrada> {
-  return useMutar<CompraEntrada, Compra>((entrada) => apiClient.crear<Compra>("/compras", entrada), {
-    invalida: [CLAVES.eventos, CLAVES.tickets, CLAVES.transacciones],
-  });
+  return useMutar<CompraEntrada, Compra>(
+    (entrada) => apiClient.crear<Compra>("/compras", entrada),
+    {
+      invalida: [CLAVES.eventos, CLAVES.tickets, CLAVES.transacciones],
+    },
+  );
 }

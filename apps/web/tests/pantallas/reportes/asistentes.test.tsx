@@ -25,7 +25,11 @@ const ASISTENTE = {
   ticket_id: "65a0000000000000000000e1",
   codigo_qr: "QR-EMITIDO-1",
   estado: "emitido",
-  tipo_ticket: { tipo_ticket_id: "65a0000000000000000000d1", nombre: "General", precio_cop: 120000 },
+  tipo_ticket: {
+    tipo_ticket_id: "65a0000000000000000000d1",
+    nombre: "General",
+    precio_cop: 120000,
+  },
   asistente: {
     usuario_id: "65a0000000000000000000b2",
     nombre: "Ana Asistente",
@@ -274,9 +278,7 @@ describe("panel de asistentes", () => {
 
     renderPanel(null);
 
-    expect(
-      await screen.findByText("Elige un evento para ver sus asistentes."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Elige un evento para ver sus asistentes.")).toBeInTheDocument();
 
     expect(peticiones).toHaveLength(0);
   });
