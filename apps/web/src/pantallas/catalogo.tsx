@@ -1,10 +1,16 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useEventos, useLugares, type FiltrosLista } from "@/api/hooks";
-import type { EstadoEvento, Evento, TipoEvento } from "@/api/tipos";
+import { useEventos, useLugares } from "@/api/hooks";
+import type { Evento } from "@/api/tipos";
 import { formatearFecha, formatearNumero } from "@/formato/es-co";
-import { ETIQUETA_ESTADO, ETIQUETA_TIPO_EVENTO } from "@/formato/vocabularios";
+import { ETIQUETA_TIPO_EVENTO } from "@/formato/vocabularios";
 import { DistintivoEstado, DistintivoVisibilidad } from "@/ui/distintivos";
+import {
+  FILTROS_INICIALES,
+  FiltrosEventos,
+  filtrosDeQuery,
+  type FiltrosEvento,
+} from "@/ui/filtros-eventos";
 import { AvisoError, Cargando, Dato, Tarjeta, Vacio } from "@/ui/piezas";
 
 /**
@@ -27,48 +33,19 @@ import { AvisoError, Cargando, Dato, Tarjeta, Vacio } from "@/ui/piezas";
 /** Eventos por página: el tamaño con el que la cuadrícula se pagina. */
 const POR_PAGINA = 12;
 
-/** Los tipos de evento del contrato, en el orden en que se ofrecen. */
-const TIPOS: readonly TipoEvento[] = ["corporativo", "masivo", "hibrido", "academico"];
-
-/** Los estados del contrato, en el orden en que se ofrecen. */
-const ESTADOS: readonly EstadoEvento[] = ["borrador", "publicado", "cancelado", "finalizado"];
-
-/** Las clases del control de formulario: los seis campos se ven igual. */
-const CONTROL =
-  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none";
-
-/** Los filtros del catálogo: los parámetros de la query de `GET /api/eventos`. */
-type Filtros = {
-  tipo_evento: string;
-  estado: string;
-  categoria: string;
-  lugar_id: string;
-  desde: string;
-  q: string;
-};
-
 /**
- * El estado por defecto de los filtros.
+ * El estado por defecto de los filtros del catálogo.
  *
- * El estado por defecto es `publicado`: son los eventos que la API todavía no
- * da por terminados, los que se pueden recorrer con datos vivos. Los demás
- * filtros empiezan vacíos, que en el contrato significa «sin filtro».
+ * Es `publicado`: son los eventos que la API todavía no da por terminados,
+ * los que se pueden recorrer con datos vivos. Los demás filtros empiezan
+ * vacíos, que en el contrato significa «sin filtro».
  */
-const FILTROS_INICIALES: Filtros = {
-  tipo_evento: "",
-  estado: "publicado",
-  categoria: "",
-  lugar_id: "",
-  desde: "",
-  q: "",
-};
+const FILTROS_PUBLICOS: FiltrosEvento = { ...FILTROS_INICIALES, estado: "publicado" };
 
 /** Pantalla del catálogo: filtros, cuadrícula de eventos y paginación. */
 export function Catalogo() {
-  // Lo que el usuario está escribiendo, que todavía no se ha aplicado.
-  const [borrador, setBorrador] = useState<Filtros>(FILTROS_INICIALES);
-  // Lo que la API tiene que responder.
-  const [aplicados, setAplicados] = useState<Filtros>(FILTROS_INICIALES);
+  // Lo que la API tiene que responder: los filtros que se aplicaron.
+  const [aplicados, setAplicados] = useState<FiltrosEvento>(FILTROS_PUBLICOS);
   // Cuántos eventos se saltan: la página actual es `skip / POR_PAGINA + 1`.
   const [skip, setSkip] = useState(0);
 
@@ -97,25 +74,9 @@ export function Catalogo() {
     [lugares.data],
   );
 
-  /** Cambia un campo del borrador: todavía no consulta nada. */
-  function cambiar(campo: keyof Filtros) {
-    return (evento: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      setBorrador((actual) => ({ ...actual, [campo]: evento.target.value }));
-    };
-  }
-
-  /** Aplica los filtros del borrador y vuelve a la primera página. */
-  function aplicar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-
-    setAplicados({ ...borrador });
-    setSkip(0);
-  }
-
-  /** Borra los filtros y vuelve al estado por defecto y a la primera página. */
-  function limpiar() {
-    setBorrador({ ...FILTROS_INICIALES });
-    setAplicados({ ...FILTROS_INICIALES });
+  /** Aplica los filtros y vuelve a la primera página. */
+  function aplicar(filtros: FiltrosEvento) {
+    setAplicados(filtros);
     setSkip(0);
   }
 
@@ -128,110 +89,11 @@ export function Catalogo() {
         </p>
       </header>
 
-      <Tarjeta
-        titulo="Filtros"
+      <FiltrosEventos
+        onAplicar={aplicar}
+        iniciales={{ estado: "publicado" }}
         descripcion="Los filtros se aplican al pulsar «Filtrar». Por defecto se ven los eventos publicados."
-      >
-        <form onSubmit={aplicar} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Campo id="filtro-tipo-evento" etiqueta="Tipo de evento">
-              <select
-                id="filtro-tipo-evento"
-                value={borrador.tipo_evento}
-                onChange={cambiar("tipo_evento")}
-                className={CONTROL}
-              >
-                <option value="">Todos</option>
-                {TIPOS.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {ETIQUETA_TIPO_EVENTO[tipo]}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-
-            <Campo id="filtro-estado" etiqueta="Estado">
-              <select
-                id="filtro-estado"
-                value={borrador.estado}
-                onChange={cambiar("estado")}
-                className={CONTROL}
-              >
-                <option value="">Todos</option>
-                {ESTADOS.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {ETIQUETA_ESTADO[estado]}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-
-            <Campo id="filtro-categoria" etiqueta="Categoría">
-              <input
-                id="filtro-categoria"
-                type="text"
-                value={borrador.categoria}
-                onChange={cambiar("categoria")}
-                className={CONTROL}
-                placeholder="conciertos"
-              />
-            </Campo>
-
-            <Campo id="filtro-lugar" etiqueta="Lugar">
-              <select
-                id="filtro-lugar"
-                value={borrador.lugar_id}
-                onChange={cambiar("lugar_id")}
-                className={CONTROL}
-              >
-                <option value="">Todos</option>
-                {(lugares.data?.items ?? []).map((lugar) => (
-                  <option key={lugar._id} value={lugar._id}>
-                    {lugar.nombre} — {lugar.direccion}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-
-            <Campo id="filtro-desde" etiqueta="Desde">
-              <input
-                id="filtro-desde"
-                type="date"
-                value={borrador.desde}
-                onChange={cambiar("desde")}
-                className={CONTROL}
-              />
-            </Campo>
-
-            <Campo id="filtro-q" etiqueta="Búsqueda">
-              <input
-                id="filtro-q"
-                type="search"
-                value={borrador.q}
-                onChange={cambiar("q")}
-                className={CONTROL}
-                placeholder="rock"
-              />
-            </Campo>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Filtrar
-            </button>
-            <button
-              type="button"
-              onClick={limpiar}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Limpiar
-            </button>
-          </div>
-        </form>
-      </Tarjeta>
+      />
 
       <Tarjeta titulo="Eventos" descripcion="Los eventos que cumplen los filtros aplicados.">
         {eventos.isPending ? (
@@ -278,18 +140,6 @@ export function Catalogo() {
           </div>
         </nav>
       </Tarjeta>
-    </div>
-  );
-}
-
-/** Una etiqueta y su control: el patrón de todos los campos del formulario. */
-function Campo({ id, etiqueta, children }: { id: string; etiqueta: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
-        {etiqueta}
-      </label>
-      {children}
     </div>
   );
 }
@@ -353,32 +203,4 @@ function Categorias({ categorias }: { categorias: string[] }) {
       ))}
     </span>
   );
-}
-
-/**
- * Los filtros aplicados, como parámetros de la query.
- *
- * Los campos vacíos **no viajan**: la API lee `tipo_evento` y `estado` como
- * vocabularios cerrados y un parámetro vacío sería una petición inválida.
- */
-function filtrosDeQuery(filtros: Filtros): FiltrosLista {
-  const query: FiltrosLista = {};
-  const campos: (keyof Filtros)[] = [
-    "tipo_evento",
-    "estado",
-    "categoria",
-    "lugar_id",
-    "desde",
-    "q",
-  ];
-
-  for (const campo of campos) {
-    const valor = filtros[campo];
-
-    if (valor !== "") {
-      query[campo] = valor;
-    }
-  }
-
-  return query;
 }

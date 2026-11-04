@@ -30,11 +30,28 @@ export const ETIQUETA_ESTADO: Record<EstadoEvento, string> = {
   finalizado: "Finalizado",
 };
 
+/**
+ * Los estados del evento, en el orden en que se ofrecen.
+ *
+ * El **valor** de cada estado es el que la API entiende; su etiqueta en
+ * español está arriba. La lista vive aquí para que los selectores de la
+ * interfaz ofrezcan siempre los mismos valores, en el mismo orden.
+ */
+export const ESTADOS_EVENTO: readonly EstadoEvento[] = [
+  "borrador",
+  "publicado",
+  "cancelado",
+  "finalizado",
+];
+
 /** Etiqueta en español de cada visibilidad del evento. */
 export const ETIQUETA_VISIBILIDAD: Record<VisibilidadEvento, string> = {
   publico: "Público",
   privado: "Privado",
 };
+
+/** Las visibilidades del evento, en el orden en que se ofrecen. */
+export const VISIBILIDADES_EVENTO: readonly VisibilidadEvento[] = ["publico", "privado"];
 
 /** Etiqueta en español de cada tipo de evento. */
 export const ETIQUETA_TIPO_EVENTO: Record<TipoEvento, string> = {
@@ -43,6 +60,14 @@ export const ETIQUETA_TIPO_EVENTO: Record<TipoEvento, string> = {
   hibrido: "Híbrido",
   academico: "Académico",
 };
+
+/** Los tipos de evento del contrato, en el orden en que se ofrecen. */
+export const TIPOS_EVENTO: readonly TipoEvento[] = [
+  "corporativo",
+  "masivo",
+  "hibrido",
+  "academico",
+];
 
 /** Etiqueta en español de cada tipo de promoción. */
 export const ETIQUETA_TIPO_PROMOCION: Record<TipoPromocion, string> = {
