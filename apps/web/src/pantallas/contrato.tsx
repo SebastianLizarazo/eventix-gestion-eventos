@@ -103,7 +103,8 @@ export function Contrato() {
 
 /** El contrato ya cargado, con sus cuatro secciones. */
 function Contenido({ contrato }: { contrato: ContratoOpenApi }) {
-  const grupos = agruparRutas(contrato);
+  const rutas = rutasDelContrato(contrato);
+  const grupos = agruparRutas(rutas);
   const colecciones = coleccionesDe(contrato);
   const codigos = codigosDeError(contrato);
   const descripciones = descripcionesDeCodigos(contrato);
@@ -114,13 +115,10 @@ function Contenido({ contrato }: { contrato: ContratoOpenApi }) {
         <dl className="grid gap-x-8 sm:grid-cols-2">
           <Dato etiqueta="Versión" valor={contrato.info.version} />
           <Dato etiqueta="Documento" valor={`OpenAPI ${contrato.openapi}`} />
-          <Dato
-            etiqueta="Rutas"
-            valor={`${formatearNumero(Object.keys(contrato.paths).length)} rutas`}
-          />
+          <Dato etiqueta="Rutas" valor={`${formatearNumero(rutas.length)} rutas`} />
           <Dato
             etiqueta="Operaciones"
-            valor={`${formatearNumero(totalDeOperaciones(contrato))} operaciones`}
+            valor={`${formatearNumero(totalDeOperaciones(rutas))} operaciones`}
           />
         </dl>
       </Tarjeta>
@@ -388,6 +386,34 @@ function camposAnidados(
 }
 
 /**
+ * Las rutas del contrato que declaran al menos una operación.
+ *
+ * Una ruta sin operaciones no se muestra, y tampoco cuenta: el contador y el
+ * listado tienen que decir lo mismo.
+ */
+function rutasDelContrato(contrato: ContratoOpenApi): RutaDelContrato[] {
+  const rutas: RutaDelContrato[] = [];
+
+  for (const [plantilla, operaciones] of Object.entries(contrato.paths ?? {})) {
+    const metodos = Object.entries(operaciones).filter(([metodo]) => esMetodoHttp(metodo));
+
+    if (metodos.length === 0) {
+      continue;
+    }
+
+    rutas.push({
+      plantilla,
+      operaciones: metodos.map(([metodo, operacion]) => ({
+        metodo: metodo.toUpperCase(),
+        operacion,
+      })),
+    });
+  }
+
+  return rutas;
+}
+
+/**
  * Las rutas del contrato, agrupadas por recurso.
  *
  * El recurso es **el primer segmento de la ruta**: `/eventos/{id}` es del
@@ -398,32 +424,23 @@ function camposAnidados(
  * usuario»)— y agrupar por ellas abriría quince grupos donde el modelo tiene
  * nueve colecciones.
  */
-function agruparRutas(contrato: ContratoOpenApi): GrupoDeRutas[] {
+function agruparRutas(rutas: RutaDelContrato[]): GrupoDeRutas[] {
   const grupos = new Map<string, RutaDelContrato[]>();
 
-  for (const [plantilla, operaciones] of Object.entries(contrato.paths)) {
-    const metodos = Object.entries(operaciones).filter(([metodo]) => esMetodoHttp(metodo));
+  for (const ruta of rutas) {
+    const recurso = recursoDe(ruta.plantilla);
 
-    if (metodos.length === 0) {
-      continue;
-    }
+    const delRecurso = grupos.get(recurso) ?? [];
 
-    const recurso = recursoDe(plantilla);
+    delRecurso.push(ruta);
 
-    const rutas = grupos.get(recurso) ?? [];
-
-    rutas.push({
-      plantilla,
-      operaciones: metodos.map(([metodo, operacion]) => ({
-        metodo: metodo.toUpperCase(),
-        operacion,
-      })),
-    });
-
-    grupos.set(recurso, rutas);
+    grupos.set(recurso, delRecurso);
   }
 
-  return [...grupos.entries()].map(([etiqueta, rutas]) => ({ etiqueta, rutas }));
+  return [...grupos.entries()].map(([etiqueta, rutasDelGrupo]) => ({
+    etiqueta,
+    rutas: rutasDelGrupo,
+  }));
 }
 
 /**
@@ -438,12 +455,9 @@ function recursoDe(plantilla: string): string {
   return segmentos[0] ?? SIN_ETIQUETA;
 }
 
-/** Cuántas operaciones declara el contrato en total. */
-function totalDeOperaciones(contrato: ContratoOpenApi): number {
-  return Object.values(contrato.paths).reduce(
-    (total, operaciones) => total + Object.keys(operaciones).filter(esMetodoHttp).length,
-    0,
-  );
+/** Cuántas operaciones declaran las rutas, en total. */
+function totalDeOperaciones(rutas: RutaDelContrato[]): number {
+  return rutas.reduce((total, ruta) => total + ruta.operaciones.length, 0);
 }
 
 /** ¿La clave de una ruta es un método HTTP? */
@@ -465,7 +479,10 @@ function esMetodoHttp(metodo: string): boolean {
  * colección nueva aparecería en pantalla sin tocar la interfaz.
  */
 function coleccionesDe(contrato: ContratoOpenApi): Coleccion[] {
-  const esquemas = contrato.components.schemas;
+  // `components` es **opcional** en OpenAPI: un documento puede no declarar
+  // esquemas y sigue siendo válido. La pantalla no se rompe por eso: lo que
+  // no hay, no se muestra.
+  const esquemas: Record<string, EsquemaJson> = contrato.components?.schemas ?? {};
   const colecciones = new Map<string, EsquemaJson>();
 
   for (const esquema of Object.values(esquemas)) {
@@ -517,7 +534,7 @@ function nombreDeEsquema(referencia: string): string | undefined {
  * el servidor, no la interfaz.
  */
 function codigosDeError(contrato: ContratoOpenApi): string[] {
-  const valores = contrato.components.schemas.Error?.properties?.error?.properties?.codigo?.enum;
+  const valores = contrato.components?.schemas?.Error?.properties?.error?.properties?.codigo?.enum;
 
   if (valores === undefined) {
     return [];
@@ -537,7 +554,7 @@ function codigosDeError(contrato: ContratoOpenApi): string[] {
 function descripcionesDeCodigos(contrato: ContratoOpenApi): Record<string, string> {
   const descripciones: Record<string, string> = {};
 
-  for (const operaciones of Object.values(contrato.paths)) {
+  for (const operaciones of Object.values(contrato.paths ?? {})) {
     for (const operacion of Object.values(operaciones)) {
       for (const respuesta of Object.values(operacion.responses ?? {})) {
         const codigo = codigoDeEjemplo(respuesta);

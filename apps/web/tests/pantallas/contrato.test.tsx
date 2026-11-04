@@ -270,4 +270,30 @@ describe("pantalla del contrato con una respuesta falsa", () => {
     expect(await screen.findByText("El contrato no se pudo leer")).toBeInTheDocument();
     expect(screen.getByText("req-contrato-1")).toBeInTheDocument();
   });
+
+  it("un contrato sin componentes ni esquemas no rompe la pantalla", async () => {
+    // `components` es opcional en OpenAPI: un documento puede no declarar
+    // esquemas y seguir siendo válido. La pantalla muestra lo que hay y no
+    // se cae por lo que falta.
+    const sinComponentes = {
+      openapi: "3.1.0",
+      info: { title: "API sin esquemas", version: "0.1.0" },
+      paths: {
+        "/saludo": {
+          get: { summary: "Saluda a quien pregunte", tags: ["salud"], responses: {} },
+        },
+      },
+    };
+
+    vi.stubGlobal("fetch", fetchCon(sinComponentes));
+
+    renderPantalla();
+
+    expect(await screen.findByText("API sin esquemas")).toBeInTheDocument();
+    expect(screen.getByText("/saludo")).toBeInTheDocument();
+
+    // Y lo que no hay, se dice: ni los esquemas ni los códigos de error.
+    expect(screen.getByText("El contrato no declara esquemas de colecciones.")).toBeInTheDocument();
+    expect(screen.getByText("El contrato no declara códigos de error.")).toBeInTheDocument();
+  });
 });
