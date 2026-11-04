@@ -2,9 +2,13 @@ import type {
   EstadoContable,
   EstadoEvento,
   EstadoTicket,
+  EstadoTransaccion,
   MetodoPago,
+  RolActor,
   TipoEvento,
   TipoPromocion,
+  TipoSujeto,
+  TipoUsuario,
   VisibilidadEvento,
 } from "@/api/tipos";
 
@@ -88,6 +92,82 @@ export const ETIQUETA_ESTADO_TICKET: Record<EstadoTicket, string> = {
   usado: "Usado",
   anulado: "Anulado",
 };
+
+/**
+ * Los estados del ticket, en el orden en que se ofrecen.
+ *
+ * El valor es el que la API entiende; la etiqueta en español está arriba.
+ */
+export const ESTADOS_TICKET: readonly EstadoTicket[] = ["emitido", "usado", "anulado"];
+
+/**
+ * Los estados de una transacción, en el orden en que se ofrecen.
+ *
+ * Es el mismo vocabulario que el estado contable, con otro nombre: el estado
+ * contable es el que agrupa el cierre y el estado de la transacción es el que
+ * filtra la lista de cargos.
+ */
+export const ESTADOS_TRANSACCION: readonly EstadoTransaccion[] = [
+  "pendiente",
+  "aprobada",
+  "rechazada",
+  "anulada",
+  "reembolsada",
+];
+
+/**
+ * Etiqueta en español de cada rol de actor de la auditoría.
+ *
+ * `sistema` no es una persona: es el actor que escribe el rastro cuando la
+ * compra emite el ticket.
+ */
+export const ETIQUETA_ROL_ACTOR: Record<RolActor, string> = {
+  asistente: "Asistente",
+  organizador: "Organizador",
+  sistema: "Sistema",
+};
+
+/** Los roles de actor de la auditoría, en el orden en que se ofrecen. */
+export const ROLES_ACTOR: readonly RolActor[] = ["asistente", "organizador", "sistema"];
+
+/**
+ * Etiqueta en español de cada tipo de sujeto de la auditoría.
+ *
+ * El sujeto es **sobre qué** se registró la acción: el ticket, el evento, la
+ * transacción, el usuario, el lugar o la promoción.
+ */
+export const ETIQUETA_TIPO_SUJETO: Record<TipoSujeto, string> = {
+  ticket: "Ticket",
+  evento: "Evento",
+  transaccion: "Transacción",
+  usuario: "Usuario",
+  lugar: "Lugar",
+  promocion: "Promoción",
+};
+
+/** Los tipos de sujeto de la auditoría, en el orden en que se ofrecen. */
+export const TIPOS_SUJETO: readonly TipoSujeto[] = [
+  "ticket",
+  "evento",
+  "transaccion",
+  "usuario",
+  "lugar",
+  "promocion",
+];
+
+/**
+ * Etiqueta en español de cada tipo de usuario.
+ *
+ * Un usuario puede tener más de un tipo (`asistente` y `organizador` a la
+ * vez), así que la lista se muestra como una unión de etiquetas.
+ */
+export const ETIQUETA_TIPO_USUARIO: Record<TipoUsuario, string> = {
+  asistente: "Asistente",
+  organizador: "Organizador",
+};
+
+/** Los tipos de usuario, en el orden en que se ofrecen. */
+export const TIPOS_USUARIO: readonly TipoUsuario[] = ["asistente", "organizador"];
 
 /**
  * Etiqueta en español de cada estado contable de una transacción.
