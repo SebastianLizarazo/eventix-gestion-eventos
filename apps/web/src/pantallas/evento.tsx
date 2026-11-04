@@ -78,6 +78,14 @@ export function Evento() {
           >
             Comprar
           </Link>
+
+          {/* La edición vive en la gestión: desde aquí se entra a ella. */}
+          <Link
+            to={`/gestion/eventos/${datos._id}`}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Editar
+          </Link>
         </div>
 
         {datos.descripcion ? (
