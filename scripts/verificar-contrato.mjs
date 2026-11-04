@@ -16,9 +16,10 @@
  *   pnpm verificar:contrato
  *
  * Cubre hoy **todo lo que la interfaz consume**: la salud, los eventos (la
- * colección y el detalle), los lugares, las promociones y las cuatro vistas
- * del reporting. Para verificar otro recurso basta con agregarlo a la tabla
- * `VERIFICACIONES` de este archivo.
+ * colección y el detalle), los lugares, las promociones, las cuatro vistas del
+ * reporting y las cuatro colecciones de solo lectura —usuarios, tickets,
+ * transacciones y auditoría—. Para verificar otro recurso basta con agregarlo
+ * a la tabla `VERIFICACIONES` de este archivo.
  *
  * Requiere la API arriba (no hace falta el servidor de Vite: este script
  * habla con la API directamente).
@@ -84,6 +85,12 @@ const VERIFICACIONES = [
     etiqueta: "transacción de la página",
     tipo: "Transaccion",
     valor: (datos) => datos.transacciones.items[0],
+  },
+  { etiqueta: "página de auditoría", tipo: "Pagina", valor: (datos) => datos.auditoria },
+  {
+    etiqueta: "registro de auditoría",
+    tipo: "Auditoria",
+    valor: (datos) => datos.auditoria.items[0],
   },
 ];
 
@@ -395,13 +402,14 @@ function verificar(etiqueta, valor, tipo, problemas) {
 
 /** Pide a la API los datos reales que hay que comparar. */
 async function datosReales() {
-  const [salud, eventos, lugares, usuarios, tickets, transacciones] = await Promise.all([
+  const [salud, eventos, lugares, usuarios, tickets, transacciones, auditoria] = await Promise.all([
     pedir("/api/health"),
     pedir("/api/eventos?limit=1&estado=publicado"),
     pedir("/api/lugares?limit=1"),
     pedir("/api/usuarios?limit=1"),
     pedir("/api/tickets?limit=1"),
     pedir("/api/transacciones?limit=1"),
+    pedir("/api/auditoria?limit=1"),
   ]);
 
   const evento = eventos.items?.[0];
@@ -432,6 +440,7 @@ async function datosReales() {
     usuarios,
     tickets,
     transacciones,
+    auditoria,
   };
 }
 

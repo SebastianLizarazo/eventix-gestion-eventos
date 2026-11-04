@@ -61,6 +61,31 @@ export function Vacio({ texto }: { texto: string }) {
 }
 
 /**
+ * Una etiqueta y su control: el patrón de todos los campos de un formulario.
+ *
+ * Vive aquí porque lo usan los filtros de los eventos y los de las tablas de
+ * solo lectura: el control y su etiqueta se ven igual en todas partes.
+ */
+export function Campo({
+  id,
+  etiqueta,
+  children,
+}: {
+  id: string;
+  etiqueta: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        {etiqueta}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+/**
  * Estado de error.
  *
  * Tres cosas se muestran siempre, porque son las que hacen falta para

@@ -23,6 +23,8 @@ export const SECCIONES: Seccion[] = [
   { ruta: "/compra", titulo: "Compra" },
   { ruta: "/reportes", titulo: "Reportes" },
   { ruta: "/gestion/eventos", titulo: "Gestión" },
+  { ruta: "/exploradores", titulo: "Exploradores" },
+  { ruta: "/contrato", titulo: "Contrato" },
 ];
 
 /** Barra de navegación. */

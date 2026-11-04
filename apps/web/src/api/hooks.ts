@@ -9,6 +9,7 @@ import { apiClient } from "./cliente";
 import type { ContratoOpenApi } from "./contrato";
 import type {
   Asistente,
+  Auditoria,
   CambiosEvento,
   CierreContable,
   Compra,
@@ -24,7 +25,9 @@ import type {
   Promocion,
   RankingVendidos,
   Salud,
+  Ticket,
   TipoTicket,
+  Transaccion,
   Usuario,
 } from "./tipos";
 
@@ -438,6 +441,39 @@ export function useAsistentes(
  */
 export function useUsuarios(filtros?: FiltrosLista): UseQueryResult<Pagina<Usuario>, Error> {
   return useListar<Usuario>(CLAVES.usuarios, "/usuarios", { limit: 25, ...filtros });
+}
+
+/**
+ * Página de tickets.
+ *
+ * La colección es de solo lectura para la interfaz (spec S4): el contrato
+ * ofrece los filtros `evento_id`, `estado` y `usuario_id`, y nada más.
+ */
+export function useTickets(filtros?: FiltrosLista): UseQueryResult<Pagina<Ticket>, Error> {
+  return useListar<Ticket>(CLAVES.tickets, "/tickets", { limit: 25, ...filtros });
+}
+
+/**
+ * Página de transacciones.
+ *
+ * Los filtros del contrato son `usuario_id`, `estado`, `desde` y `hasta`: los
+ * dos últimos son fechas de calendario (`YYYY-MM-DD`).
+ */
+export function useTransacciones(
+  filtros?: FiltrosLista,
+): UseQueryResult<Pagina<Transaccion>, Error> {
+  return useListar<Transaccion>(CLAVES.transacciones, "/transacciones", { limit: 25, ...filtros });
+}
+
+/**
+ * Página de registros de auditoría.
+ *
+ * El rastro es **append-only**: la API responde `405` a un `PATCH` o a un
+ * `DELETE`, así que la interfaz solo lo lee. Los filtros del contrato son
+ * `actor_id`, `actor_rol`, `sujeto_tipo`, `sujeto_id`, `desde` y `hasta`.
+ */
+export function useAuditoria(filtros?: FiltrosLista): UseQueryResult<Pagina<Auditoria>, Error> {
+  return useListar<Auditoria>(CLAVES.auditoria, "/auditoria", { limit: 25, ...filtros });
 }
 
 /**

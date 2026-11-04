@@ -726,3 +726,40 @@ export type Compra = {
   /** La promoción que se aplicó, o `null` si la compra fue sin promoción. */
   promocion_codigo: string | null;
 };
+
+/**
+ * Rol del actor de un registro de auditoría.
+ *
+ * `sistema` es el actor que no es una persona: es el que escribe el rastro
+ * cuando la compra emite el ticket, por ejemplo.
+ */
+export type RolActor = "asistente" | "organizador" | "sistema";
+
+/** Tipo del sujeto sobre el que se registró una acción. */
+export type TipoSujeto = "ticket" | "evento" | "transaccion" | "usuario" | "lugar" | "promocion";
+
+/**
+ * Registro de auditoría: una acción, quién la hizo y sobre qué.
+ *
+ * La colección es **append-only**: se lee y se añade, pero no se modifica ni
+ * se borra (la API responde `405` a un `PATCH` o a un `DELETE`). `metadata` es
+ * libre a propósito —es la parte flexible del modelo— y por eso la interfaz
+ * lo muestra como viene, sin interpretarlo.
+ */
+export type Auditoria = {
+  _id: string;
+  /** Quién hizo la acción. */
+  actor_id: string;
+  /** El papel que tenía el actor. */
+  actor_rol: RolActor;
+  /** Qué pasó, en notación de dominio (`compra`, `evento.actualizado`…). */
+  accion: string;
+  /** Sobre qué tipo de documento pasó. */
+  sujeto_tipo: TipoSujeto;
+  /** Sobre qué documento pasó. */
+  sujeto_id: string;
+  /** El detalle libre de la acción. */
+  metadata: Record<string, unknown>;
+  /** Cuándo pasó, con la hora del servidor. */
+  ocurrido_en: string;
+};
