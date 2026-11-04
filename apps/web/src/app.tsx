@@ -1,7 +1,9 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Catalogo } from "@/pantallas/catalogo";
 import { Compra } from "@/pantallas/compra";
+import { Contrato } from "@/pantallas/contrato";
 import { Evento } from "@/pantallas/evento";
+import { Exploradores } from "@/pantallas/exploradores";
 import { GestionEventos } from "@/pantallas/gestion";
 import { FormularioEvento } from "@/pantallas/gestion/evento-form";
 import { Inicio } from "@/pantallas/inicio";
@@ -28,6 +30,8 @@ export function App() {
           <Route path="/gestion/eventos" element={<GestionEventos />} />
           <Route path="/gestion/eventos/nuevo" element={<FormularioEvento />} />
           <Route path="/gestion/eventos/:id" element={<FormularioEvento />} />
+          <Route path="/exploradores" element={<Exploradores />} />
+          <Route path="/contrato" element={<Contrato />} />
           <Route path="*" element={<NoEncontrada />} />
         </Route>
       </Routes>
