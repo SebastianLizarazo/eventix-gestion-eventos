@@ -82,7 +82,10 @@ pnpm verificar:contrato            # el cliente y la API hablan el mismo idioma
 `pnpm verificar:contrato` **contrasta la respuesta real de la API contra los
 tipos que declara la interfaz** (`apps/web/src/api/tipos.ts`): pide los datos
 de verdad y los recorre con el compilador de TypeScript. Si la API manda una
-clave que el tipo no declara —o al revés— el comando falla y dice cuál. Es la
+clave que el tipo no declara —o al revés— el comando falla y dice cuál, y
+también falla si el tipo de un valor no coincide. Cubre hoy **todo lo que la
+interfaz consume**: la salud, los eventos, los lugares, las promociones y las
+cuatro vistas del reporting (**12 estructuras, 881 propiedades**). Es la
 comprobación que sostiene que el cliente y el servidor no se van a
 desincronizar; necesita la API arriba (`pnpm dev`).
 
