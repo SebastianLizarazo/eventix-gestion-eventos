@@ -24,6 +24,15 @@ export type SelectorEventoProps = {
   eventoId: string | null;
   /** Avisa del evento que el usuario eligió. */
   onChange: (eventoId: string) => void;
+  /**
+   * Nombre del evento ya elegido, para quien lo conoce de antemano.
+   *
+   * El selector guarda el evento elegido para que sobreviva a la búsqueda,
+   * pero ese nombre solo aparece si el usuario lo eligió aquí. Cuando el
+   * evento llega desde otro lado —una ruta con su identificador, por
+   * ejemplo—, quien lo usa pasa su nombre y el desplegable lo muestra.
+   */
+  nombreElegido?: string | null;
 };
 
 /** Cuántos eventos se ofrecen: los resultados de la búsqueda. */
@@ -34,7 +43,7 @@ const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none";
 
 /** Selector de evento. */
-export function SelectorEvento({ eventoId, onChange }: SelectorEventoProps) {
+export function SelectorEvento({ eventoId, onChange, nombreElegido }: SelectorEventoProps) {
   // Lo que el usuario está escribiendo, que todavía no se ha buscado.
   const [texto, setTexto] = useState("");
   // Lo que la API tiene que responder.
@@ -47,14 +56,23 @@ export function SelectorEvento({ eventoId, onChange }: SelectorEventoProps) {
   const resultados = eventos.data?.items ?? [];
 
   /**
+   * El evento que el desplegable conserva.
+   *
+   * Es el que el usuario eligió aquí, o el que llegó desde afuera con su
+   * nombre (una ruta con su identificador, por ejemplo).
+   */
+  const conservado =
+    elegido ?? (eventoId && nombreElegido ? { id: eventoId, nombre: nombreElegido } : null);
+
+  /**
    * Las opciones del desplegable.
    *
    * Si el evento elegido no está entre los resultados, se conserva como
    * primera opción: el selector no puede quedarse sin valor.
    */
   const opciones = [
-    ...(elegido && !resultados.some((evento) => evento._id === elegido.id)
-      ? [{ id: elegido.id, texto: elegido.nombre }]
+    ...(conservado && !resultados.some((evento) => evento._id === conservado.id)
+      ? [{ id: conservado.id, texto: conservado.nombre }]
       : []),
     ...resultados.map((evento) => ({
       id: evento._id,

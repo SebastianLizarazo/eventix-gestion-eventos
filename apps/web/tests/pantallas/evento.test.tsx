@@ -211,4 +211,16 @@ describe("ficha de evento", () => {
     expect(screen.getByText("jornada_horaria")).toBeInTheDocument();
     expect(screen.getByText("Auditorio central")).toBeInTheDocument();
   });
+
+  it("ofrece comprar un ticket del evento", async () => {
+    vi.stubGlobal("fetch", fetchFalso(EVENTO_BASE));
+
+    renderFicha();
+
+    const enlace = await screen.findByRole("link", { name: "Comprar" });
+
+    // La compra arranca con el evento ya elegido: su identificador viaja en
+    // la ruta de la pantalla de compra.
+    expect(enlace).toHaveAttribute("href", `/compra?evento=${ID_EVENTO}`);
+  });
 });
