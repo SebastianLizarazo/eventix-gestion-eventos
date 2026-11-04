@@ -23,6 +23,7 @@
 | 03  | [Justificación tecnológica](./03-justificacion-tecnologica.md)                | Justificación tecnológica                        | Completo                  |
 | 04  | [Modelado de datos](./04-modelado-de-datos.md)                                | Modelado de datos                                | Completo                  |
 | 05  | [Implementación (prototipo funcional sobre MongoDB 7.x)](./05-implementacion.md) | Implementación                                   | Completo                  |
+| 06  | [Interfaz web](./06-interfaz-web.md)                      | Interfaz web                                   | Completo                  |
 
 ---
 
@@ -35,5 +36,6 @@
 | **Estrategia de modelado** | Híbrida: **embed** para datos de cardinalidad baja y consultados junto al padre; **reference** para relaciones many-to-many o crecientes |
 | **Casos de uso núcleo** | Catálogo de eventos, venta de tickets, registro de asistentes, asignación de promociones, reporting operativo |
 | **Acceso (item 5)**    | API REST (Express 5 + MongoDB 7.x), con contrato OpenAPI 3.1 y arranque en contenedores          |
+| **Acceso (parte 06)**  | Interfaz web (React + Vite) consumidora pura del contrato OpenAPI 3.1, con arranque en un comando |
 
 > **Nota metodológica:** Este proyecto es un caso **simulado**, no se ejecuta contra datos reales. Los volúmenes, métricas y nombres son realistas pero hipotéticos, y se declaran explícitamente en el documento 01.

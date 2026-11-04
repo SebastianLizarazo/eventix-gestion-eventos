@@ -1,40 +1,50 @@
 # Eventix — prototipo funcional sobre MongoDB 7.x
 
 Implementación del **ítem 5** del avance: _Comparativa técnica: del modelo relacional a
-NoSQL (caso real simulado)_ — caso **Eventix S.A.**
+NoSQL (caso real simulado)_ — caso **Eventix S.A.** — y su **parte 06**, la
+interfaz web.
 
 El diseño (ítems 1–4) vive en [`docs/`](./docs). **Qué se implementó, cómo se corre y
 qué miden los NFR** está en [`docs/05-implementacion.md`](./docs/05-implementacion.md).
+**La interfaz web** —qué muestra, cómo se corre y qué evidencia tiene— está en
+[`docs/06-interfaz-web.md`](./docs/06-interfaz-web.md).
 El roadmap de implementación, con el estado real de cada tarea, vive en
-[`odd/tasks/eventix-implementacion.md`](./odd/tasks/eventix-implementacion.md).
+[`odd/tasks/eventix-implementacion.md`](./odd/tasks/eventix-implementacion.md), y el de
+la interfaz en [`odd/tasks/eventix-frontend.md`](./odd/tasks/eventix-frontend.md).
 
 ## Arranque con Docker — un comando
 
 La vía más corta: **solo necesita Docker**. Levanta MongoDB, aplica el esquema,
-siembra el dataset `dev` y expone la API.
+siembra el dataset `dev` y expone la API con la interfaz web.
 
 ```bash
 docker compose -f docker-compose.entrega.yml up --build
 ```
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:5173/api/health
 # {"status":"ok","mongo":"up","version":"0.1.0","uptimeSeconds":3}
 ```
 
-La API queda en **http://localhost:3000** y MongoDB en `localhost:27018` (por si
-quieres mirar la base). Para bajar todo: `docker compose -f docker-compose.entrega.yml
-down` (o `down -v` para borrar también los datos).
+La **interfaz web queda en http://localhost:5173** (esa es la puerta de entrada:
+habla con la API por su proxy, así que el navegador solo ve un mismo origen), la
+API en **http://localhost:3000** y MongoDB en `localhost:27018` (por si quieres
+mirar la base: la conexión directa es `mongodb://localhost:27018/eventix?directConnection=true`,
+porque el replica set se anuncia con el nombre del contenedor). Para bajar todo:
+`docker compose -f docker-compose.entrega.yml down` (o `down -v` para borrar
+también los datos).
 
-El contenedor de la API **no tiene política de reinicio**: si la preparación de
-la base falla, queda **caído y visible** (con el error en sus logs, y
-`docker compose ps` lo muestra como `exited`) en vez de reiniciarse en loop.
-Hay que volver a levantarlo a mano con `up`.
+El contenedor de la API **no tiene política de reinicio**, y el de la web tampoco:
+si la preparación de la base o la configuración de nginx fallan, quedan **caídos
+y visibles** (con el error en sus logs, y `docker compose ps` los muestra como
+`exited`) en vez de reiniciarse en loop. Hay que volver a levantarlos a mano con
+`up`.
 
 | Variable                        | Por defecto | Qué hace                                                                               |
 | ------------------------------- | ----------- | -------------------------------------------------------------------------------------- |
 | `EVENTIX_BIND`                  | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red                                  |
 | `EVENTIX_PORT`                  | `3000`      | Puerto publicado de la API                                                             |
+| `EVENTIX_WEB_PORT`              | `5173`      | Puerto publicado de la interfaz web                                                    |
 | `EVENTIX_MONGO_PORT`            | `27018`     | Puerto publicado de MongoDB                                                            |
 | `EVENTIX_SEED`                  | `auto`      | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra      |
 | `EVENTIX_SEED_SCALE`            | `dev`       | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
@@ -84,10 +94,13 @@ tipos que declara la interfaz** (`apps/web/src/api/tipos.ts`): pide los datos
 de verdad y los recorre con el compilador de TypeScript. Si la API manda una
 clave que el tipo no declara —o al revés— el comando falla y dice cuál, y
 también falla si el tipo de un valor no coincide. Cubre hoy **todo lo que la
-interfaz consume**: la salud, los eventos, los lugares, las promociones y las
-cuatro vistas del reporting (**12 estructuras, 881 propiedades**). Es la
-comprobación que sostiene que el cliente y el servidor no se van a
-desincronizar; necesita la API arriba (`pnpm dev`).
+interfaz consume**: la salud, los eventos, los lugares, las promociones, las
+cuatro vistas del reporting y las cuatro colecciones de solo lectura (**20
+estructuras**; contra el dataset `dev` son **19 verificadas y 692 propiedades**,
+porque la auditoría llega vacía: el seed no escribe rastro y el rastro solo lo
+escribe una compra). Es la comprobación que sostiene que el cliente y el
+servidor no se van a desincronizar; necesita la API arriba (`pnpm dev`) y
+**corre también en el CI**, contra la API real del compose de entrega.
 
 ## Estructura
 
@@ -101,12 +114,19 @@ apps/api/          API REST (Express 5 + TypeScript estricto)
   src/seed/        generador sintético determinista
   src/nfr/         las tres mediciones de los NFR
   tests/           tests de integración HTTP (supertest)
-scripts/           scripts de operación (levantar/apagar MongoDB)
-docs/              entregables de los ítems 1–5
-odd/tasks/         roadmap de implementación (documento vivo)
-Dockerfile          imagen de entrega (compilación + solo dependencias de producción)
+apps/web/          interfaz web (React + Vite + TypeScript estricto + Tailwind)
+  src/api/         cliente HTTP tipado, tipos del contrato y hooks de datos
+  src/pantallas/   las ocho pantallas
+  src/ui/          layout, tabla con paginación y piezas compartidas
+  tests/           tests del frontend (Vitest + Testing Library)
+  Dockerfile       imagen de la interfaz: compila la SPA y la sirve con nginx
+  nginx.conf       el _fallback_ de la SPA y el proxy de `/api`
+scripts/           scripts de operación (levantar/apagar MongoDB, verificar el contrato)
+docs/              entregables de los ítems 1–5 y de la parte 06 (interfaz web)
+odd/tasks/         roadmaps de implementación (documentos vivos)
+Dockerfile          imagen de entrega de la API (compilación + solo dependencias de producción)
 docker-compose.yml            MongoDB 7.x en replica set de un solo nodo (desarrollo)
-docker-compose.entrega.yml    MongoDB + API en contenedores, arranque en un comando
+docker-compose.entrega.yml    MongoDB + API + interfaz web en contenedores, arranque en un comando
 ```
 
 ## Notas de diseño relevantes

@@ -25,6 +25,12 @@
  * habla con la API directamente).
  *
  *   EVENTIX_API_URL=http://localhost:3000 pnpm verificar:contrato
+ *
+ * **Una colección vacía no es un desajuste.** La auditoría es la única que
+ * puede venir vacía (el seed no escribe rastro y el rastro solo lo escribe una
+ * compra), así que el verificador dice qué no pudo comparar en vez de fallar.
+ * Las demás colecciones siempre traen filas: si una vuelve vacía, la API tiene
+ * un defecto y el verificador falla.
  */
 import { join, resolve } from "node:path";
 import ts from "typescript";
@@ -90,6 +96,12 @@ const VERIFICACIONES = [
   {
     etiqueta: "registro de auditoría",
     tipo: "Auditoria",
+    // La auditoría es la **única** colección que puede venir vacía: el seed no
+    // escribe rastro, y el rastro solo lo escribe una compra (es la única
+    // parte de la API que inserta en `auditoria_eventos`). Las demás
+    // colecciones del seed siempre traen filas, así que si una de esas vuelve
+    // vacía es un defecto de la API y el verificador tiene que fallar.
+    puedeVenirVacia: true,
     valor: (datos) => datos.auditoria.items[0],
   },
 ];
@@ -458,11 +470,21 @@ try {
 
 try {
   const problemas = [];
+  const sinVerificar = [];
 
   for (const verificacion of VERIFICACIONES) {
     const valor = verificacion.valor(datos);
 
     if (valor === undefined) {
+      // Una colección que puede venir vacía **no es un desajuste de tipos**:
+      // no hay nada que comparar, y el verificador lo dice en vez de
+      // inventar un problema. Las demás siguen siendo un fallo: si una
+      // colección con datos vuelve vacía, la API tiene un defecto.
+      if (verificacion.puedeVenirVacia === true) {
+        sinVerificar.push(verificacion.etiqueta);
+        continue;
+      }
+
       problemas.push(`${verificacion.etiqueta}: la respuesta no trae esa parte`);
       continue;
     }
@@ -501,9 +523,21 @@ try {
     process.exit(1);
   }
 
-  console.log(
-    `[eventix] El contrato cuadra: ${VERIFICACIONES.length} estructuras, ${comprobadas} propiedades comprobadas contra la API real.`,
-  );
+  const verificadas = VERIFICACIONES.length - sinVerificar.length;
+
+  if (sinVerificar.length === 0) {
+    console.log(
+      `[eventix] El contrato cuadra: ${VERIFICACIONES.length} estructuras, ${comprobadas} propiedades comprobadas contra la API real.`,
+    );
+  } else {
+    console.log(
+      `[eventix] El contrato cuadra: ${verificadas} de ${VERIFICACIONES.length} estructuras verificadas, ${comprobadas} propiedades comprobadas contra la API real.`,
+    );
+    console.log(
+      `[eventix] Sin datos para comparar (la colección vino vacía): ${sinVerificar.join(", ")}.`,
+    );
+  }
+
   process.exit(0);
 } catch (error) {
   console.error(`\n[eventix] El verificador falló: ${error.message}`);
