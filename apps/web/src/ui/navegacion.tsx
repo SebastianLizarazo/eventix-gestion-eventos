@@ -22,6 +22,7 @@ export const SECCIONES: Seccion[] = [
   { ruta: "/catalogo", titulo: "Catálogo" },
   { ruta: "/compra", titulo: "Compra" },
   { ruta: "/reportes", titulo: "Reportes" },
+  { ruta: "/gestion/eventos", titulo: "Gestión" },
 ];
 
 /** Barra de navegación. */

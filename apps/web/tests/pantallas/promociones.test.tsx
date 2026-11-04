@@ -255,4 +255,36 @@ describe("panel de promociones", () => {
     await waitFor(() => expect(screen.queryByLabelText("Código")).not.toBeInTheDocument());
     expect(screen.getByText("VERANO10")).toBeInTheDocument();
   });
+
+  it("elimina una promoción por su código, previa confirmación", async () => {
+    const { peticiones, fetchFalso } = crearRed();
+
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const usuario = userEvent.setup();
+
+    renderPanel();
+
+    await screen.findByText("VERANO10");
+
+    await usuario.click(
+      within(screen.getByRole("row", { name: /VERANO10/ })).getByRole("button", {
+        name: "Eliminar",
+      }),
+    );
+
+    // La baja pide confirmación: el borrado no sale de la pantalla por arte de
+    // magia.
+    expect(screen.getByText("¿Eliminar «VERANO10»?")).toBeInTheDocument();
+    expect(peticiones.some((peticion) => peticion.metodo === "DELETE")).toBe(false);
+
+    await usuario.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+
+    await waitFor(() => {
+      const baja = peticiones.find((peticion) => peticion.metodo === "DELETE");
+
+      expect(baja).toBeDefined();
+      expect(baja?.url).toBe(`/api/eventos/${ID_EVENTO}/promociones/VERANO10`);
+    });
+  });
 });

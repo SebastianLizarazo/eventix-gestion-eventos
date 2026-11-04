@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUsuarios } from "@/api/hooks";
+import { useUsuarios, type FiltrosLista } from "@/api/hooks";
 import type { Usuario } from "@/api/tipos";
 
 /**
@@ -31,6 +31,21 @@ export type SelectorUsuarioProps = {
   usuarioId: string | null;
   /** Avisa del usuario que se eligió. */
   onChange: (usuarioId: string) => void;
+  /**
+   * Filtros de la colección que se lista.
+   *
+   * El contrato solo filtra por `tipo_usuario` e `idioma`: por eso la gestión
+   * de eventos puede pedir **los organizadores** y no toda la colección.
+   */
+  filtros?: FiltrosLista;
+  /**
+   * El usuario que ya estaba elegido cuando se abrió la pantalla.
+   *
+   * Sin esto, editar un registro cuyo usuario no está en la página visible
+   * mostraría el selector vacío: el valor se conservaría en el cuerpo, pero
+   * la pantalla no diría cuál era.
+   */
+  elegidoInicial?: { id: string; texto: string } | null;
 };
 
 /** Cuántos usuarios se piden por página. */
@@ -41,17 +56,30 @@ const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none";
 
 /** Selector de usuario. */
-export function SelectorUsuario({ id, etiqueta, usuarioId, onChange }: SelectorUsuarioProps) {
+export function SelectorUsuario({
+  id,
+  etiqueta,
+  usuarioId,
+  onChange,
+  filtros,
+  elegidoInicial,
+}: SelectorUsuarioProps) {
   // El texto que filtra la página cargada.
   const [texto, setTexto] = useState("");
   // La página de usuarios que está a la vista.
   const [pagina, setPagina] = useState(0);
   // El usuario elegido, con sus datos: sobreviven al filtro y a la página.
   const [elegido, setElegido] = useState<{ id: string; nombre: string; correo: string } | null>(
-    null,
+    elegidoInicial === undefined || elegidoInicial === null
+      ? null
+      : { id: elegidoInicial.id, nombre: elegidoInicial.texto, correo: elegidoInicial.texto },
   );
 
-  const usuarios = useUsuarios({ skip: pagina * POR_PAGINA, limit: POR_PAGINA });
+  const usuarios = useUsuarios({
+    ...filtros,
+    skip: pagina * POR_PAGINA,
+    limit: POR_PAGINA,
+  });
   const recibidos = usuarios.data?.items ?? [];
   const total = usuarios.data?.total ?? null;
 
@@ -66,7 +94,15 @@ export function SelectorUsuario({ id, etiqueta, usuarioId, onChange }: SelectorU
    */
   const opciones = [
     ...(elegido && !filtrados.some((usuario) => usuario._id === elegido.id)
-      ? [{ id: elegido.id, texto: `${elegido.nombre} — ${elegido.correo}` }]
+      ? [
+          {
+            id: elegido.id,
+            texto:
+              elegido.nombre === elegido.correo
+                ? elegido.nombre
+                : `${elegido.nombre} — ${elegido.correo}`,
+          },
+        ]
       : []),
     ...filtrados.map((usuario) => ({
       id: usuario._id,

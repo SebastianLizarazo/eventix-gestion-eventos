@@ -144,6 +144,25 @@ export function esErrorApi(valor: unknown): valor is ErrorApi {
 }
 
 /**
+ * ¿El error es un conflicto?
+ *
+ * El código `conflicto` es el que dice dos cosas distintas y las dos se
+ * deciden por código, nunca por el mensaje (spec S6):
+ *
+ * - **La versión del documento ya no es la vigente.** El recurso cambió
+ *   mientras el formulario estaba abierto; la edición no se aplica.
+ * - **El recurso está en uso.** Un tipo de ticket que una promoción aplica no
+ *   se puede borrar.
+ *
+ * La interfaz necesita distinguirlas para decir qué hacer, así que además de
+ * este predicado mira el `request_id` y el detalle por campo que trae el
+ * error.
+ */
+export function esConflicto(valor: unknown): boolean {
+  return esErrorApi(valor) && valor.codigo === "conflicto";
+}
+
+/**
  * Interpreta un cuerpo JSON como el contrato de error de la API.
  *
  * Devuelve `undefined` cuando el cuerpo **no** es el contrato: un HTML de un

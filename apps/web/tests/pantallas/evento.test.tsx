@@ -184,6 +184,12 @@ describe("ficha de evento", () => {
     expect(screen.getByText("General")).toBeInTheDocument();
     expect(screen.getByText("COP 120.000")).toBeInTheDocument();
     expect(screen.getByText("150 / 200")).toBeInTheDocument();
+
+    // La ficha enlaza con la gestión, que es donde se edita el evento.
+    expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute(
+      "href",
+      `/gestion/eventos/${ID_EVENTO}`,
+    );
   });
 
   it("muestra el bloque de configuración propio del tipo de evento", async () => {

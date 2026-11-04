@@ -1,5 +1,10 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { useCrearPromocion, useEditarPromocion, usePromociones } from "@/api/hooks";
+import {
+  useBorrarPromocion,
+  useCrearPromocion,
+  useEditarPromocion,
+  usePromociones,
+} from "@/api/hooks";
 import type { EntradaPromocion, Promocion, TipoPromocion, TipoTicket } from "@/api/tipos";
 import {
   aCampoFechaHora,
@@ -79,15 +84,18 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
   const promociones = usePromociones(eventoId);
   const crear = useCrearPromocion(eventoId);
   const editar = useEditarPromocion(eventoId);
+  const borrar = useBorrarPromocion(eventoId);
 
   const [modo, setModo] = useState<Modo>("lista");
   const [campos, setCampos] = useState<Campos>(CAMPOS_VACIOS);
   const [codigoAnterior, setCodigoAnterior] = useState<string | null>(null);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  // La promoción que el usuario está a punto de eliminar.
+  const [porBorrar, setPorBorrar] = useState<Promocion | null>(null);
 
   const lista = promociones.data ?? [];
-  const errorEscritura = crear.error ?? editar.error;
-  const escribiendo = crear.isPending || editar.isPending;
+  const errorEscritura = crear.error ?? editar.error ?? borrar.error;
+  const escribiendo = crear.isPending || editar.isPending || borrar.isPending;
 
   /** Cambia uno o varios campos del formulario. */
   function actualizar(cambios: Partial<Campos>): void {
@@ -144,6 +152,28 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
   }
 
   /**
+   * Ejecuta el borrado de la promoción que el usuario confirmó.
+   *
+   * La baja existe porque el borrado de un tipo de ticket que una promoción
+   * aplica está bloqueado por la API: sin esta vía, la instrucción del
+   * propio servidor («quítalas primero») no tendría a dónde ir.
+   */
+  function confirmarBorrado(): void {
+    if (porBorrar === null) {
+      return;
+    }
+
+    const codigo = porBorrar.codigo;
+
+    setPorBorrar(null);
+    // Por el mismo motivo: el error de una escritura anterior no sobrevive a
+    // un borrado que sí sale bien.
+    crear.reset();
+    editar.reset();
+    borrar.mutate(codigo);
+  }
+
+  /**
    * Arma el cuerpo de la promoción y lo manda.
    *
    * El cuerpo es el mismo en los dos casos: lo que cambia es la ruta, que en
@@ -172,6 +202,9 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
     };
 
     setErrorLocal(null);
+    // El error de un borrado anterior no puede quedar pegado en pantalla si
+    // esta escritura sí sale bien: cada mutación tiene su propio error.
+    borrar.reset();
 
     if (modo === "edicion" && codigoAnterior !== null) {
       editar.mutate(
@@ -223,6 +256,10 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
               promociones={lista}
               tiposTicket={tiposTicket}
               onEditar={editarPromocion}
+              porBorrar={porBorrar}
+              onPedirBorrado={setPorBorrar}
+              onCancelarBorrado={() => setPorBorrar(null)}
+              onConfirmarBorrado={confirmarBorrado}
             />
           )}
         </div>
@@ -404,10 +441,18 @@ function TablaPromociones({
   promociones,
   tiposTicket,
   onEditar,
+  porBorrar,
+  onPedirBorrado,
+  onCancelarBorrado,
+  onConfirmarBorrado,
 }: {
   promociones: Promocion[];
   tiposTicket: TipoTicket[];
   onEditar: (promocion: Promocion) => void;
+  porBorrar: Promocion | null;
+  onPedirBorrado: (promocion: Promocion) => void;
+  onCancelarBorrado: () => void;
+  onConfirmarBorrado: () => void;
 }) {
   return (
     <table className="w-full text-left text-sm">
@@ -446,6 +491,10 @@ function TablaPromociones({
             promocion={promocion}
             tiposTicket={tiposTicket}
             onEditar={onEditar}
+            porBorrar={porBorrar}
+            onPedirBorrado={onPedirBorrado}
+            onCancelarBorrado={onCancelarBorrado}
+            onConfirmarBorrado={onConfirmarBorrado}
           />
         ))}
       </tbody>
@@ -458,10 +507,18 @@ function FilaPromocion({
   promocion,
   tiposTicket,
   onEditar,
+  porBorrar,
+  onPedirBorrado,
+  onCancelarBorrado,
+  onConfirmarBorrado,
 }: {
   promocion: Promocion;
   tiposTicket: TipoTicket[];
   onEditar: (promocion: Promocion) => void;
+  porBorrar: Promocion | null;
+  onPedirBorrado: (promocion: Promocion) => void;
+  onCancelarBorrado: () => void;
+  onConfirmarBorrado: () => void;
 }) {
   const usos = `${formatearNumero(promocion.usos_realizados)} / ${
     promocion.usos_maximos === undefined ? "—" : formatearNumero(promocion.usos_maximos)
@@ -491,13 +548,42 @@ function FilaPromocion({
         {nombresDeTipos(promocion.aplica_a_tipo_ticket_ids, tiposTicket)}
       </td>
       <td className="py-3">
-        <button
-          type="button"
-          onClick={() => onEditar(promocion)}
-          className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          Editar
-        </button>
+        {porBorrar?.codigo === promocion.codigo ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-600">¿Eliminar «{promocion.codigo}»?</span>
+            <button
+              type="button"
+              onClick={onConfirmarBorrado}
+              className="rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-red-600"
+            >
+              Sí, eliminar
+            </button>
+            <button
+              type="button"
+              onClick={onCancelarBorrado}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onEditar(promocion)}
+              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onPedirBorrado(promocion)}
+              className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+            >
+              Eliminar
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );

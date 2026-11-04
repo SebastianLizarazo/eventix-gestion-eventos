@@ -190,6 +190,87 @@ export type ConfiguracionEvento = {
   academico?: ConfiguracionAcademico;
 };
 
+/**
+ * Configuración del evento en la forma en que la maneja el editor: **sin
+ * forma fija**.
+ *
+ * La configuración es la parte flexible del modelo (spec S10): el editor la
+ * construye con el esquema que publica el contrato, así que en la interfaz no
+ * hay ninguna lista de campos por tipo de evento. El tipo es abierto a
+ * propósito —el dominio es el que juzga qué bloque pertenece a qué tipo— y por
+ * eso el editor y el formulario hablan de `unknown` y no de `ConfiguracionEvento`.
+ */
+export type ConfiguracionEditable = Record<string, unknown>;
+
+/**
+ * Evento que acepta el cliente: lo que se manda al dar de alta.
+ *
+ * Es el **contrato de entrada**, no el documento persistido: no lleva `_id`,
+ * ni las marcas de tiempo, ni los contadores que escribe el sistema. Los
+ * campos que el dominio pone solo (`slug`) se pueden omitir: la API los deriva
+ * del nombre.
+ */
+export type EntradaEvento = {
+  nombre: string;
+  tipo_evento: TipoEvento;
+  descripcion?: string;
+  slug?: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado?: EstadoEvento;
+  visibilidad?: VisibilidadEvento;
+  organizador_id: string;
+  lugar_id: string;
+  categorias?: string[];
+  tags?: string[];
+  configuracion_evento?: ConfiguracionEditable;
+};
+
+/**
+ * Cambios de un evento: lo que se manda al editar.
+ *
+ * Dos diferencias con el alta, y las dos son del contrato:
+ *
+ * 1. **La versión que se leyó viaja en el cuerpo** (`_v`). El servidor la
+ *    compara con la vigente: si ya no es la misma, responde `409` y la
+ *    edición no se aplica. Es el bloqueo optimista del recurso.
+ * 2. **Un campo puede dejar de existir.** El `PATCH` fusiona el cuerpo sobre
+ *    el documento leído, así que un campo que no viaje conserva su valor; y
+ *    un campo que viaje como `null` **se borra** (la descripción vacía sale
+ *    del documento en vez de quedarse como una cadena en blanco).
+ */
+export type CambiosEvento = {
+  nombre: string;
+  tipo_evento: TipoEvento;
+  descripcion?: string | null;
+  slug?: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado: EstadoEvento;
+  visibilidad: VisibilidadEvento;
+  organizador_id: string;
+  lugar_id: string;
+  categorias: string[];
+  tags: string[];
+  configuracion_evento: ConfiguracionEditable;
+  /** Versión del documento que se leyó: la que la API contrasta con la vigente. */
+  _v: number;
+};
+
+/**
+ * Tipo de ticket que acepta el cliente: el `_id` lo asigna la API, porque es
+ * el que lo referencia el ticket comprado y la promoción que se le aplica.
+ *
+ * `aforo_vendido` no está: lo lleva el sistema, y una edición no puede
+ * revertir un cupo ya vendido.
+ */
+export type EntradaTipoTicket = {
+  nombre: string;
+  precio_cop: number;
+  aforo_total: number;
+  restricciones?: Restricciones;
+};
+
 /** Identidad visual del evento: los colores y el logo que lo representan. */
 export type Branding = {
   color_primario: string;
