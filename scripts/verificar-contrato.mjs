@@ -75,6 +75,16 @@ const VERIFICACIONES = [
   },
   { etiqueta: "cierre contable", tipo: "CierreContable", valor: (datos) => datos.cierre },
   { etiqueta: "ranking de vendidos", tipo: "RankingVendidos", valor: (datos) => datos.ranking },
+  { etiqueta: "página de usuarios", tipo: "Pagina", valor: (datos) => datos.usuarios },
+  { etiqueta: "usuario de la página", tipo: "Usuario", valor: (datos) => datos.usuarios.items[0] },
+  { etiqueta: "página de tickets", tipo: "Pagina", valor: (datos) => datos.tickets },
+  { etiqueta: "ticket de la página", tipo: "Ticket", valor: (datos) => datos.tickets.items[0] },
+  { etiqueta: "página de transacciones", tipo: "Pagina", valor: (datos) => datos.transacciones },
+  {
+    etiqueta: "transacción de la página",
+    tipo: "Transaccion",
+    valor: (datos) => datos.transacciones.items[0],
+  },
 ];
 
 /** Pide un recurso de la API y devuelve su cuerpo. */
@@ -383,10 +393,13 @@ function verificar(etiqueta, valor, tipo, problemas) {
 
 /** Pide a la API los datos reales que hay que comparar. */
 async function datosReales() {
-  const [salud, eventos, lugares] = await Promise.all([
+  const [salud, eventos, lugares, usuarios, tickets, transacciones] = await Promise.all([
     pedir("/api/health"),
     pedir("/api/eventos?limit=1&estado=publicado"),
     pedir("/api/lugares?limit=1"),
+    pedir("/api/usuarios?limit=1"),
+    pedir("/api/tickets?limit=1"),
+    pedir("/api/transacciones?limit=1"),
   ]);
 
   const evento = eventos.items?.[0];
@@ -414,6 +427,9 @@ async function datosReales() {
     asistentes,
     cierre,
     ranking,
+    usuarios,
+    tickets,
+    transacciones,
   };
 }
 

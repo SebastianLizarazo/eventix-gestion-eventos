@@ -71,12 +71,18 @@ export function Vacio({ texto }: { texto: string }) {
  *
  * El error de la API y el fallo de transporte se distinguen: la API faló y
  * hay que corregir la petición; el transporte falló y hay que levantar la API.
+ *
+ * El `titulo` es opcional porque hay errores cuyo motivo se conoce y merece
+ * una frase propia (la compra, con sus nueve motivos): entonces el título
+ * explica el motivo y el mensaje de la API queda debajo.
  */
-export function AvisoError({ error }: { error: unknown }) {
+export function AvisoError({ error, titulo }: { error: unknown; titulo?: string }) {
   if (esErrorApi(error)) {
     return (
       <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <p className="text-sm font-semibold text-red-900">{error.message}</p>
+        <p className="text-sm font-semibold text-red-900">{titulo ?? error.message}</p>
+
+        {titulo ? <p className="mt-1 text-sm text-red-800">{error.message}</p> : null}
 
         {error.detalles && error.detalles.length > 0 ? (
           <ul className="mt-2 space-y-1">

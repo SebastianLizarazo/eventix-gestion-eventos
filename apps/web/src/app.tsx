@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Catalogo } from "@/pantallas/catalogo";
+import { Compra } from "@/pantallas/compra";
 import { Evento } from "@/pantallas/evento";
 import { Inicio } from "@/pantallas/inicio";
 import { NoEncontrada } from "@/pantallas/no-encontrada";
@@ -20,6 +21,7 @@ export function App() {
           <Route path="/" element={<Inicio />} />
           <Route path="/catalogo" element={<Catalogo />} />
           <Route path="/eventos/:id" element={<Evento />} />
+          <Route path="/compra" element={<Compra />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="*" element={<NoEncontrada />} />
         </Route>
