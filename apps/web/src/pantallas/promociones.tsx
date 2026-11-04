@@ -166,6 +166,10 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
     const codigo = porBorrar.codigo;
 
     setPorBorrar(null);
+    // Por el mismo motivo: el error de una escritura anterior no sobrevive a
+    // un borrado que sí sale bien.
+    crear.reset();
+    editar.reset();
     borrar.mutate(codigo);
   }
 
@@ -198,6 +202,9 @@ export function PanelPromociones({ eventoId, tiposTicket }: PanelPromocionesProp
     };
 
     setErrorLocal(null);
+    // El error de un borrado anterior no puede quedar pegado en pantalla si
+    // esta escritura sí sale bien: cada mutación tiene su propio error.
+    borrar.reset();
 
     if (modo === "edicion" && codigoAnterior !== null) {
       editar.mutate(

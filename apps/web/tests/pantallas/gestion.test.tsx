@@ -351,7 +351,11 @@ describe("Formulario de evento", () => {
     fireEvent.change(nombre, { target: { value: "Otro nombre" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
-    expect(await screen.findByText("Este evento cambió desde que lo abriste")).toBeInTheDocument();
+    // El título dice que no se pudo guardar (sin inventar el motivo: un
+    // conflicto puede ser la versión o el slug repetido) y el mensaje de la
+    // API dice cuál fue.
+    expect(await screen.findByText("No se pudo guardar el evento")).toBeInTheDocument();
+    expect(screen.getByText("El recurso cambió desde que se leyó")).toBeInTheDocument();
   });
 
   it("la configuración se construye con los campos que declara el contrato", async () => {

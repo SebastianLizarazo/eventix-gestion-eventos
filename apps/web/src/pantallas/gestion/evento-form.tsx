@@ -409,16 +409,12 @@ export function FormularioEvento() {
             {errorLocal}
           </p>
         ) : null}
-
         {errorEscritura !== null ? (
           <AvisoError
             error={errorEscritura}
-            titulo={
-              esConflicto(errorEscritura) ? "Este evento cambió desde que lo abriste" : undefined
-            }
+            titulo={esConflicto(errorEscritura) ? "No se pudo guardar el evento" : undefined}
           />
         ) : null}
-
         <div className="flex items-center gap-3">
           <button
             type="submit"

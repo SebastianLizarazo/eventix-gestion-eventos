@@ -87,12 +87,32 @@ export type ContratoOpenApi = {
  * publica la ruta de los tipos de ticket. Sin resolver la referencia, el
  * editor genérico no vería los campos del tipo de ticket.
  *
+ * Hay dos formas de referencia y las dos se resuelven:
+ *
+ * - **`#/components/schemas/<nombre>`**: un puntero al documento del
+ *   contrato.
+ * - **`#/<ruta>`**: un puntero **local**, relativo al esquema que lo
+ *   contiene (así los declara el generador de esquemas: `fecha_fin` puede
+ *   apuntar a `fecha_inicio`).
+ *
  * Devuelve `undefined` cuando la referencia no apunta a nada: es un contrato
- * que no se conoce, y un campo que no se conoce no se muestra.
+ * que no se conoce, y un campo que no se conoce no se muestra. Una referencia
+ * **cíclica** también devuelve `undefined` en vez de desbordar la pila.
  */
 export function resolverEsquema(
   esquema: EsquemaJson | undefined,
   contrato: ContratoOpenApi | undefined,
+  base?: EsquemaJson,
+): EsquemaJson | undefined {
+  return resolver(esquema, contrato, base, new Set<string>());
+}
+
+/** Resuelve una referencia, llevando la cuenta de las ya visitsadas. */
+function resolver(
+  esquema: EsquemaJson | undefined,
+  contrato: ContratoOpenApi | undefined,
+  base: EsquemaJson | undefined,
+  visitados: Set<string>,
 ): EsquemaJson | undefined {
   if (esquema === undefined || contrato === undefined) {
     return undefined;
@@ -102,10 +122,57 @@ export function resolverEsquema(
     return esquema;
   }
 
-  const nombre = esquema.$ref.split("/").pop() ?? "";
-  const destino = contrato.components.schemas[nombre];
+  // Una referencia que se apunta a sí misma (directa o por el camino largo)
+  // no tiene salida: se corta en lugar de reventar la pila.
+  if (visitados.has(esquema.$ref)) {
+    return undefined;
+  }
 
-  return destino === undefined ? undefined : resolverEsquema(destino, contrato);
+  visitados.add(esquema.$ref);
+
+  const destino = apuntaA(esquema.$ref, contrato, base);
+
+  return destino === undefined ? undefined : resolver(destino, contrato, base, visitados);
+}
+
+/**
+ * A dónde apunta una referencia del contrato.
+ *
+ * Un puntero que empieza por `components/schemas` se busca en el documento
+ * del contrato; cualquier otro es local y se busca dentro del esquema que lo
+ * contiene.
+ */
+function apuntaA(
+  referencia: string,
+  contrato: ContratoOpenApi,
+  base: EsquemaJson | undefined,
+): EsquemaJson | undefined {
+  const partes = referencia
+    .replace(/^#\//, "")
+    .split("/")
+    .filter((parte) => parte !== "");
+
+  if (partes[0] === "components" && partes[1] === "schemas") {
+    const nombre = partes[2];
+
+    return nombre === undefined ? undefined : contrato.components.schemas[nombre];
+  }
+
+  if (base === undefined) {
+    return undefined;
+  }
+
+  let actual: unknown = base;
+
+  for (const parte of partes) {
+    if (typeof actual !== "object" || actual === null) {
+      return undefined;
+    }
+
+    actual = (actual as Record<string, unknown>)[parte];
+  }
+
+  return actual === undefined ? undefined : (actual as EsquemaJson);
 }
 
 /**

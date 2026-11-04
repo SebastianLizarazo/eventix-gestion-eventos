@@ -116,6 +116,7 @@ function CamposDeObjeto({ contrato, esquema, valor, onCambiar, idBase }: CamposD
           key={campo}
           contrato={contrato}
           esquema={campoEsquema}
+          base={esquema}
           valor={valor[campo]}
           onCambiar={(nuevo) => onCambiar(conCampo(valor, campo, nuevo))}
           id={`${idBase}-${campo}`}
@@ -130,6 +131,8 @@ function CamposDeObjeto({ contrato, esquema, valor, onCambiar, idBase }: CamposD
 type CampoDePropiedadProps = {
   contrato: ContratoOpenApi | undefined;
   esquema: EsquemaJson;
+  /** El esquema que contiene a este: es la base de sus punteros locales. */
+  base?: EsquemaJson;
   valor: unknown;
   onCambiar: (valor: unknown) => void;
   id: string;
@@ -143,12 +146,13 @@ type CampoDePropiedadProps = {
 function CampoDePropiedad({
   contrato,
   esquema,
+  base,
   valor,
   onCambiar,
   id,
   etiqueta,
 }: CampoDePropiedadProps) {
-  const resuelto = resolverEsquema(esquema, contrato);
+  const resuelto = resolverEsquema(esquema, contrato, base);
 
   if (resuelto === undefined) {
     return null;

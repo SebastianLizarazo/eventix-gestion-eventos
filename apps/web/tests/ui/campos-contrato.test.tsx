@@ -176,4 +176,66 @@ describe("Campos construidos con el esquema del contrato", () => {
       bloque: { url: "https://otro.dev" },
     });
   });
+
+  it("un puntero local se resuelve contra el esquema que lo contiene", () => {
+    const contrato: ContratoOpenApi = {
+      ...CONTRATO,
+      components: {
+        schemas: {
+          ConPuntero: {
+            type: "object",
+            properties: {
+              nombre: { type: "string" },
+              copia: { $ref: "#/properties/nombre" },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <CamposDeEsquema
+        contrato={contrato}
+        esquema={contrato.components.schemas.ConPuntero}
+        valor={{}}
+        onCambiar={vi.fn()}
+        idBase="cfg"
+      />,
+    );
+
+    // `copia` apunta a `nombre`: el puntero local se resuelve y el campo sale.
+    expect(screen.getByLabelText("Copia")).toHaveAttribute("type", "text");
+  });
+
+  it("una referencia cíclica no revienta la pantalla", () => {
+    const contrato: ContratoOpenApi = {
+      ...CONTRATO,
+      components: {
+        schemas: {
+          ConCiclo: {
+            type: "object",
+            properties: {
+              nombre: { type: "string" },
+              ciclo: { $ref: "#/properties/ciclo" },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <CamposDeEsquema
+        contrato={contrato}
+        esquema={contrato.components.schemas.ConCiclo}
+        valor={{}}
+        onCambiar={vi.fn()}
+        idBase="cfg"
+      />,
+    );
+
+    // El campo cíclico no se muestra (no se sabe leer), pero el resto de la
+    // pantalla sigue en pie.
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Ciclo")).not.toBeInTheDocument();
+  });
 });
