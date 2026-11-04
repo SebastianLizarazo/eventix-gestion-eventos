@@ -1,13 +1,17 @@
-# Compose de entrega: MongoDB y la API en contenedores, arranque en un comando.
+# Compose de entrega: MongoDB, la API y la interfaz web en contenedores,
+# arranque en un comando.
 #
 #   docker compose -f docker-compose.entrega.yml up --build
 #
-# Deja la API en http://localhost:3000 con el dataset `dev` ya sembrado. No
-# hace falta Node ni pnpm en la máquina: solo Docker.
+# Deja la interfaz en http://localhost:5173 y la API en http://localhost:3000,
+# con el dataset `dev` ya sembrado. La interfaz es la puerta de entrada: habla
+# con la API por el proxy de `/api` (nginx), así que el navegador solo ve un
+# mismo origen. No hace falta Node ni pnpm en la máquina: solo Docker.
 #
 # Variables opcionales (con su valor por defecto):
 #   EVENTIX_BIND=127.0.0.1     interfaz de publicación; 0.0.0.0 la expone a la red
 #   EVENTIX_PORT=3000          puerto publicado de la API
+#   EVENTIX_WEB_PORT=5173       puerto publicado de la interfaz web
 #   EVENTIX_MONGO_PORT=27018   puerto publicado de MongoDB
 #   EVENTIX_SEED=auto          auto (siembra si la base está vacía) | always | never
 #   EVENTIX_SEED_SCALE=dev     escala del dataset: dev | full
@@ -99,6 +103,40 @@ services:
     # quedar caído y visible, con el error en sus logs. Con una política de
     # reinicio, un error de configuración se convierte en un bucle infinito que
     # parece que la API está arrancada.
+
+  # La interfaz web: nginx sirve la SPA compilada y hace proxy de `/api` hacia
+  # el servicio `api` de arriba. Es la puerta de entrada de la demo.
+  #
+  # La dirección del backend se resuelve **en cada petición** (el `resolver`
+  # interno de Docker), no al arrancar nginx: si el contenedor de la API se
+  # reinicia y cambia de IP, el proxy sigue funcionando.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: eventix-entrega-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_WEB_PORT:-5173}:80"
+    healthcheck:
+      # El healthcheck va **a través del proxy**: si responde, están vivos el
+      # nginx, la API y MongoDB, que es exactamente la cadena que la demo
+      # necesita.
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1/api/health
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    # Sin `restart`, por la misma razón que la API: una configuración de nginx
+    # rota tiene que quedar a la vista, no reiniciarse en loop.
 
 volumes:
   entrega-mongo-data:
