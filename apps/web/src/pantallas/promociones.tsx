@@ -470,9 +470,7 @@ function FilaPromocion({
   return (
     <tr>
       <td className="py-3 pr-4 font-medium text-slate-900">{promocion.codigo}</td>
-      <td className="py-3 pr-4 text-slate-600">
-        {ETIQUETA_TIPO_PROMOCION[promocion.tipo]}
-      </td>
+      <td className="py-3 pr-4 text-slate-600">{ETIQUETA_TIPO_PROMOCION[promocion.tipo]}</td>
       <td className="py-3 pr-4 text-slate-600">{valorDe(promocion)}</td>
       <td className="py-3 pr-4 text-slate-600">
         {`${formatearFechaHora(promocion.vigencia_inicio)} — ${formatearFechaHora(promocion.vigencia_fin)}`}

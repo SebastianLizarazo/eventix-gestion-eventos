@@ -414,12 +414,7 @@ export type ResumenEstado = {
  * campo—, así que hay **un** vocabulario y dos nombres: el de la transacción
  * (la que compra) y el del cierre (la vista que lo agrega).
  */
-export type EstadoTransaccion =
-  | "pendiente"
-  | "aprobada"
-  | "rechazada"
-  | "anulada"
-  | "reembolsada";
+export type EstadoTransaccion = "pendiente" | "aprobada" | "rechazada" | "anulada" | "reembolsada";
 
 /**
  * Estado contable de una transacción.

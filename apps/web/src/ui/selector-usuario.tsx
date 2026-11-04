@@ -47,7 +47,9 @@ export function SelectorUsuario({ id, etiqueta, usuarioId, onChange }: SelectorU
   // La página de usuarios que está a la vista.
   const [pagina, setPagina] = useState(0);
   // El usuario elegido, con sus datos: sobreviven al filtro y a la página.
-  const [elegido, setElegido] = useState<{ id: string; nombre: string; correo: string } | null>(null);
+  const [elegido, setElegido] = useState<{ id: string; nombre: string; correo: string } | null>(
+    null,
+  );
 
   const usuarios = useUsuarios({ skip: pagina * POR_PAGINA, limit: POR_PAGINA });
   const recibidos = usuarios.data?.items ?? [];
@@ -96,10 +98,7 @@ export function SelectorUsuario({ id, etiqueta, usuarioId, onChange }: SelectorU
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <label
-            htmlFor={`${id}-filtro`}
-            className="block text-sm font-medium text-slate-700"
-          >
+          <label htmlFor={`${id}-filtro`} className="block text-sm font-medium text-slate-700">
             {`Filtrar ${etiqueta.toLowerCase()}`}
           </label>
           <input
@@ -153,9 +152,7 @@ export function SelectorUsuario({ id, etiqueta, usuarioId, onChange }: SelectorU
           Siguiente
         </button>
 
-        <p className="text-sm text-slate-600">
-          {`Página ${pagina + 1} de ${paginas ?? "—"}`}
-        </p>
+        <p className="text-sm text-slate-600">{`Página ${pagina + 1} de ${paginas ?? "—"}`}</p>
       </div>
 
       {elegido ? (

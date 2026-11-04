@@ -151,8 +151,7 @@ export function SelectorEvento({ eventoId, onChange, nombreElegido }: SelectorEv
 
         {elegido ? (
           <p className="text-sm text-slate-600">
-            Evento elegido:{" "}
-            <span className="font-medium text-slate-900">{elegido.nombre}</span>
+            Evento elegido: <span className="font-medium text-slate-900">{elegido.nombre}</span>
           </p>
         ) : (
           <p className="text-sm text-slate-500">Todavía no se ha elegido ningún evento</p>

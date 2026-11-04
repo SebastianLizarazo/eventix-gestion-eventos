@@ -191,7 +191,12 @@ function crearRed(opciones: { compra?: () => Response; evento?: Record<string, u
 
     if (camino === "/api/eventos") {
       return respuesta(
-        JSON.stringify({ items: [evento], total: 1, skip: 0, limit: Number(url.searchParams.get("limit") ?? 20) }),
+        JSON.stringify({
+          items: [evento],
+          total: 1,
+          skip: 0,
+          limit: Number(url.searchParams.get("limit") ?? 20),
+        }),
       );
     }
 
@@ -204,7 +209,12 @@ function crearRed(opciones: { compra?: () => Response; evento?: Record<string, u
       const limit = Number(url.searchParams.get("limit") ?? 25);
 
       return respuesta(
-        JSON.stringify({ items: USUARIOS.slice(skip, skip + limit), total: USUARIOS.length, skip, limit }),
+        JSON.stringify({
+          items: USUARIOS.slice(skip, skip + limit),
+          total: USUARIOS.length,
+          skip,
+          limit,
+        }),
       );
     }
 
@@ -215,7 +225,9 @@ function crearRed(opciones: { compra?: () => Response; evento?: Record<string, u
     }
 
     return respuesta(
-      JSON.stringify({ error: { codigo: "no_encontrado", mensaje: "No existe", request_id: "req-1" } }),
+      JSON.stringify({
+        error: { codigo: "no_encontrado", mensaje: "No existe", request_id: "req-1" },
+      }),
       404,
     );
   };
@@ -348,7 +360,13 @@ describe("pantalla de compra", () => {
             error: {
               codigo: "conflicto",
               mensaje: "No quedan entradas de General",
-              detalles: [{ campo: "aforo_total", mensaje: "No quedan entradas de General", codigo: "aforo_agotado" }],
+              detalles: [
+                {
+                  campo: "aforo_total",
+                  mensaje: "No quedan entradas de General",
+                  codigo: "aforo_agotado",
+                },
+              ],
               request_id: "req-abc",
             },
           }),

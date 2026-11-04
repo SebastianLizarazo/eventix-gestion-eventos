@@ -41,8 +41,7 @@ type FiltroEstado = EstadoTicket | "";
 const CONTROL =
   "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none";
 
-const BOTON =
-  "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700";
+const BOTON = "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700";
 
 /**
  * El panel de asistentes de un evento.
@@ -104,18 +103,10 @@ export function PanelAsistentes({ eventoId }: { eventoId: string | null }) {
       <Tarjeta titulo="Filtros" descripcion="El filtro se aplica al pulsar «Filtrar».">
         <form onSubmit={aplicar} className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label
-              htmlFor="asistentes-estado"
-              className="block text-sm font-medium text-slate-700"
-            >
+            <label htmlFor="asistentes-estado" className="block text-sm font-medium text-slate-700">
               Estado
             </label>
-            <select
-              id="asistentes-estado"
-              value={borrador}
-              onChange={cambiar}
-              className={CONTROL}
-            >
+            <select id="asistentes-estado" value={borrador} onChange={cambiar} className={CONTROL}>
               <option value="">Todos</option>
               {ESTADOS.map((valor) => (
                 <option key={valor} value={valor}>
@@ -219,14 +210,10 @@ function TablaAsistentes({ items }: { items: Asistente[] }) {
         <tbody className="divide-y divide-slate-100">
           {items.map((asistente) => (
             <tr key={asistente.ticket_id}>
-              <td className="py-2 pr-3 font-mono text-xs text-slate-700">
-                {asistente.codigo_qr}
-              </td>
+              <td className="py-2 pr-3 font-mono text-xs text-slate-700">{asistente.codigo_qr}</td>
               <td className="py-2 pr-3">
                 <p className="font-medium text-slate-900">{asistente.asistente.nombre}</p>
-                <p className="text-xs text-slate-500">
-                  {asistente.asistente.documento_identidad}
-                </p>
+                <p className="text-xs text-slate-500">{asistente.asistente.documento_identidad}</p>
               </td>
               <td className="py-2 pr-3 text-slate-700">{asistente.tipo_ticket.nombre}</td>
               <td className="py-2 pr-3 text-slate-700">

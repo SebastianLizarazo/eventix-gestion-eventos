@@ -37,7 +37,9 @@ describe("mapa de motivos de la compra", () => {
   });
 
   it("distingue un evento no encontrado de un evento no vendible", () => {
-    const noEncontrado = diagnosticoDeCompra(errorDeCompra(404, "no_encontrado", "evento_no_encontrado"));
+    const noEncontrado = diagnosticoDeCompra(
+      errorDeCompra(404, "no_encontrado", "evento_no_encontrado"),
+    );
     const noVendible = diagnosticoDeCompra(errorDeCompra(409, "conflicto", "evento_no_vendible"));
 
     expect(noEncontrado?.motivo).toBe("evento_no_encontrado");

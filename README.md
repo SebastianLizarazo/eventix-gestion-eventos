@@ -31,14 +31,14 @@ la base falla, queda **caído y visible** (con el error en sus logs, y
 `docker compose ps` lo muestra como `exited`) en vez de reiniciarse en loop.
 Hay que volver a levantarlo a mano con `up`.
 
-| Variable             | Por defecto | Qué hace                                                                               |
-| -------------------- | ----------- | -------------------------------------------------------------------------------------- |
-| `EVENTIX_BIND`       | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red                                  |
-| `EVENTIX_PORT`       | `3000`      | Puerto publicado de la API                                                             |
-| `EVENTIX_MONGO_PORT` | `27018`     | Puerto publicado de MongoDB                                                            |
-| `EVENTIX_SEED`       | `auto`      | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra      |
-| `EVENTIX_SEED_SCALE` | `dev`       | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
-| `EVENTIX_MONGO_WAIT_TIMEOUT_MS` | `120000` | Espera máxima por el primario, dentro del contenedor |
+| Variable                        | Por defecto | Qué hace                                                                               |
+| ------------------------------- | ----------- | -------------------------------------------------------------------------------------- |
+| `EVENTIX_BIND`                  | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red                                  |
+| `EVENTIX_PORT`                  | `3000`      | Puerto publicado de la API                                                             |
+| `EVENTIX_MONGO_PORT`            | `27018`     | Puerto publicado de MongoDB                                                            |
+| `EVENTIX_SEED`                  | `auto`      | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra      |
+| `EVENTIX_SEED_SCALE`            | `dev`       | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
+| `EVENTIX_MONGO_WAIT_TIMEOUT_MS` | `120000`    | Espera máxima por el primario, dentro del contenedor                                   |
 
 ## Arranque local — con pnpm
 

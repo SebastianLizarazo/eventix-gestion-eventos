@@ -215,7 +215,9 @@ function verificar(etiqueta, valor, tipo, problemas) {
       if (!literales.some((t) => valorDeLiteral(t) === valor)) {
         const admitidos = literales.map((t) => JSON.stringify(valorDeLiteral(t))).join(", ");
 
-        problemas.push(`${etiqueta}: "${valor}" no es ninguno de los valores admitidos (${admitidos})`);
+        problemas.push(
+          `${etiqueta}: "${valor}" no es ninguno de los valores admitidos (${admitidos})`,
+        );
       }
 
       return;
@@ -459,7 +461,9 @@ try {
     // Una respuesta que es un array se compara elemento por elemento.
     if (verificacion.array === true) {
       if (!Array.isArray(valor)) {
-        problemas.push(`${verificacion.etiqueta}: el tipo declara un array y la API mandó ${typeof valor}`);
+        problemas.push(
+          `${verificacion.etiqueta}: el tipo declara un array y la API mandó ${typeof valor}`,
+        );
         continue;
       }
 
