@@ -9,6 +9,8 @@ import { apiClient } from "./cliente";
 import type {
   Asistente,
   CierreContable,
+  Compra,
+  CompraEntrada,
   DashboardEvento,
   EntradaPromocion,
   EstadoTicket,
@@ -18,6 +20,7 @@ import type {
   Promocion,
   RankingVendidos,
   Salud,
+  Usuario,
 } from "./tipos";
 
 /**
@@ -310,4 +313,30 @@ export function useAsistentes(
     { estado: filtros?.estado, skip: filtros?.skip, limit: filtros?.limit ?? 50 },
     { habilitada: eventoId !== null },
   );
+}
+
+/**
+ * Página de usuarios.
+ *
+ * La colección de usuarios es grande —en la base local hay 180.000— y el
+ * contrato **no ofrece búsqueda por texto**: `GET /api/usuarios` solo filtra
+ * por `tipo_usuario` e `idioma`. Por eso el selector de usuario pagina y
+ * filtra en el cliente lo que la página ya trajo, en vez de fingir un buscador
+ * que el contrato no tiene.
+ */
+export function useUsuarios(filtros?: FiltrosLista): UseQueryResult<Pagina<Usuario>, Error> {
+  return useListar<Usuario>(CLAVES.usuarios, "/usuarios", { limit: 25, ...filtros });
+}
+
+/**
+ * Compra un ticket.
+ *
+ * La compra escribe en tres sitios —el ticket, la transacción y el aforo del
+ * evento—, así que invalida los tres: la ficha del evento (con su ocupación),
+ * los tickets y las transacciones.
+ */
+export function useCompra(): UseMutationResult<Compra, Error, CompraEntrada> {
+  return useMutar<CompraEntrada, Compra>((entrada) => apiClient.crear<Compra>("/compras", entrada), {
+    invalida: [CLAVES.eventos, CLAVES.tickets, CLAVES.transacciones],
+  });
 }

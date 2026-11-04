@@ -408,13 +408,27 @@ export type ResumenEstado = {
 };
 
 /**
+ * Estado de una transacción: el vocabulario cerrado del dominio.
+ *
+ * La transacción y el cierre contable hablan del mismo estado —es el mismo
+ * campo—, así que hay **un** vocabulario y dos nombres: el de la transacción
+ * (la que compra) y el del cierre (la vista que lo agrega).
+ */
+export type EstadoTransaccion =
+  | "pendiente"
+  | "aprobada"
+  | "rechazada"
+  | "anulada"
+  | "reembolsada";
+
+/**
  * Estado contable de una transacción.
  *
  * El esquema es **cerrado**: los cinco estados siempre vienen, aunque valgan
  * cero. Un cierre que a veces trae un estado y a veces no obligaría al
  * cliente a preguntar si falta el estado o si de verdad no hubo ninguno.
  */
-export type EstadoContable = "pendiente" | "aprobada" | "rechazada" | "anulada" | "reembolsada";
+export type EstadoContable = EstadoTransaccion;
 
 /**
  * Un día del cierre contable.
@@ -507,4 +521,132 @@ export type Asistente = {
   promocion_aplicada_codigo: string | null;
   emitido_en: string;
   validado_en: string | null;
+};
+
+/**
+ * Método de pago: el vocabulario cerrado que la API acepta.
+ *
+ * Es una unión literal y no un `string`: el compilador es lo que impide
+ * mandar un método que la API va a rechazar.
+ */
+export type MetodoPago = "tarjeta_credito" | "tarjeta_debito" | "efectivo" | "transferencia";
+
+/**
+ * Transacción: el cargo del ticket.
+ *
+ * El ticket y la transacción son las dos mitades del mismo hecho, y por eso la
+ * compra devuelve las dos juntas: el ticket es lo que se entrega y la
+ * transacción es lo que se cobró.
+ */
+export type Transaccion = {
+  _id: string;
+  /** El usuario que paga. */
+  usuario_id: string;
+  /** El ticket que se emitió con este cargo. */
+  ticket_id: string;
+  /** Lo que se cobró. */
+  monto_cop: number;
+  /** Moneda del cargo: el dominio la guarda como código ISO 4217. */
+  moneda: string;
+  metodo_pago: MetodoPago;
+  /** La pasarela en la que vive el cargo. */
+  pasarela: string;
+  estado: EstadoTransaccion;
+  /** La clave de idempotencia del cargo. */
+  referencia_pasarela: string;
+  creada_en: string;
+  /** Cuándo se confirmó el cargo; ausente mientras está pendiente. */
+  confirmada_en?: string;
+};
+
+/**
+ * Revalidación de un ticket en una puerta.
+ *
+ * Es el historial de revalidaciones del ticket: una entrada puede pasar por
+ * más de una puerta, y cada intento queda registrado con su resultado.
+ */
+export type Revalidacion = {
+  fecha: string;
+  puerta?: string;
+  resultado: "aceptado" | "rechazado";
+};
+
+/**
+ * Ticket: la entrada que se emite al comprar.
+ *
+ * Guarda **snapshots** del tipo de ticket y del asistente, no referencias: el
+ * ticket dice lo que el tipo y la persona valían cuando se emitió, y eso no
+ * cambia aunque después cambien el tipo o la persona.
+ */
+export type Ticket = {
+  _id: string;
+  /** El código QR de la entrada. */
+  codigo_qr: string;
+  estado: EstadoTicket;
+  evento_id: string;
+  /** El usuario que pagó. */
+  comprado_por_usuario_id: string;
+  /** Snapshot del tipo de ticket comprado. */
+  snapshot_tipo_ticket: {
+    tipo_ticket_id: string;
+    nombre: string;
+    precio_cop: number;
+  };
+  /** Snapshot del asistente: sus datos, copiados al emitir. */
+  asistente_snapshot: {
+    usuario_id: string;
+    nombre: string;
+    documento_identidad: string;
+    email: string;
+  };
+  /** Lo que se pagó, con la promoción ya aplicada. */
+  precio_pagado_cop: number;
+  /** El código de la promoción aplicada, si hubo. */
+  promocion_aplicada_codigo?: string;
+  /** La transacción del cargo. */
+  transaccion_id?: string;
+  emitido_en: string;
+  validado_en?: string | null;
+  validado_por_puerta?: string | null;
+  revalidaciones: Revalidacion[];
+  _v: number;
+};
+
+/**
+ * Compra: el cuerpo que acepta `POST /api/compras`.
+ *
+ * El comprador y el asistente son **dos usuarios distintos**: quien paga
+ * puede comprarle la entrada a otra persona, y sus datos se copian al snapshot
+ * del ticket. `referencia_pasarela` es la clave de idempotencia: repetir la
+ * compra con la misma referencia no vuelve a cobrar ni a ocupar cupo.
+ */
+export type CompraEntrada = {
+  evento_id: string;
+  tipo_ticket_id: string;
+  /** El usuario que paga. */
+  usuario_id: string;
+  /** El usuario que asiste. */
+  asistente_id: string;
+  metodo_pago: MetodoPago;
+  /** La pasarela en la que vive el cargo. */
+  pasarela: string;
+  /** La clave de idempotencia del cargo. */
+  referencia_pasarela: string;
+  /** La promoción a aplicar, si la hay. */
+  promocion_codigo?: string;
+};
+
+/**
+ * Compra: lo que devuelve `POST /api/compras`.
+ *
+ * `idempotente` dice si la compra **ya existía**: es `true` cuando la
+ * referencia se había usado antes y la API devolvió el mismo ticket en lugar
+ * de cobrar otra vez.
+ */
+export type Compra = {
+  ticket: Ticket;
+  transaccion: Transaccion;
+  idempotente: boolean;
+  /** La promoción que se aplicó, o `null` si la compra fue sin promoción. */
+  promocion_codigo: string | null;
 };

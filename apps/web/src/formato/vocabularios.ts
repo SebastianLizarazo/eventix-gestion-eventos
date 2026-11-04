@@ -2,6 +2,7 @@ import type {
   EstadoContable,
   EstadoEvento,
   EstadoTicket,
+  MetodoPago,
   TipoEvento,
   TipoPromocion,
   VisibilidadEvento,
@@ -75,4 +76,17 @@ export const ETIQUETA_ESTADO_CONTABLE: Record<EstadoContable, string> = {
   rechazada: "Rechazada",
   anulada: "Anulada",
   reembolsada: "Reembolsada",
+};
+
+/**
+ * Etiqueta en español de cada método de pago.
+ *
+ * Es el vocabulario que la compra escribe: la API lo acepta como conjunto
+ * cerrado y no lo cambia.
+ */
+export const ETIQUETA_METODO_PAGO: Record<MetodoPago, string> = {
+  tarjeta_credito: "Tarjeta de crédito",
+  tarjeta_debito: "Tarjeta de débito",
+  efectivo: "Efectivo",
+  transferencia: "Transferencia",
 };
