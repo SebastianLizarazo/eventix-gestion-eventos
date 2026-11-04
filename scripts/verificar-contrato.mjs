@@ -15,10 +15,10 @@
  *
  *   pnpm verificar:contrato
  *
- * Cubre hoy las **cuatro vistas del reporting** (las que la interfaz ya
- * consume de las agregadas): el dashboard en vivo, la exportación de
- * asistentes, el cierre contable y el ranking. Para verificar otro recurso
- * basta con agregarlo a la tabla `VERIFICACIONES` de este archivo.
+ * Cubre hoy **todo lo que la interfaz consume**: la salud, los eventos (la
+ * colección y el detalle), los lugares, las promociones y las cuatro vistas
+ * del reporting. Para verificar otro recurso basta con agregarlo a la tabla
+ * `VERIFICACIONES` de este archivo.
  *
  * Requiere la API arriba (no hace falta el servidor de Vite: este script
  * habla con la API directamente).
@@ -40,11 +40,32 @@ const BASE = process.env.EVENTIX_API_URL ?? "http://localhost:3000";
  * arrays y las uniones se verifican solos, así que aquí solo hace falta la
  * raíz de cada respuesta.
  *
- * La página de asistentes es la excepción: `Pagina<T>` es genérica, y el tipo
- * de sus elementos es `unknown` en la firma, así que el primer asistente se
- * compara aparte contra `Asistente`.
+ * Dos entradas necesitan una aclaración:
+ *
+ * - `Pagina<T>` es genérica, y el tipo de sus elementos es `unknown` en la
+ *   firma: la página se compara con `Pagina` y su primer elemento aparte,
+ *   contra el tipo concreto.
+ * - Las promociones se devuelven como un **array**, no como una página: la
+ *   entrada lleva `array: true` y se compara cada elemento contra `Promocion`.
+ *
+ * **No hace falta una lista de tipos "abiertos":** el esquema del servidor
+ * (`z.object`) elimina las claves que no conoce, así que la API nunca manda
+ * una clave que el tipo no declare. Si algún día el modelo se abriera, el
+ * verificador fallaría y avisaría —que es justo lo que tiene que pasar—.
  */
 const VERIFICACIONES = [
+  { etiqueta: "salud", tipo: "Salud", valor: (datos) => datos.salud },
+  { etiqueta: "página de eventos", tipo: "Pagina", valor: (datos) => datos.eventos },
+  { etiqueta: "evento de la página", tipo: "Evento", valor: (datos) => datos.eventos.items[0] },
+  { etiqueta: "evento", tipo: "Evento", valor: (datos) => datos.evento },
+  { etiqueta: "página de lugares", tipo: "Pagina", valor: (datos) => datos.lugares },
+  { etiqueta: "lugar de la página", tipo: "Lugar", valor: (datos) => datos.lugares.items[0] },
+  {
+    etiqueta: "promociones del evento",
+    tipo: "Promocion",
+    array: true,
+    valor: (datos) => datos.promociones,
+  },
   { etiqueta: "dashboard del evento", tipo: "DashboardEvento", valor: (datos) => datos.dashboard },
   { etiqueta: "página de asistentes", tipo: "Pagina", valor: (datos) => datos.asistentes },
   {
@@ -117,6 +138,21 @@ function propiedadesDe(tipo) {
   }));
 }
 
+/**
+ * El valor de un literal.
+ *
+ * Los literales de texto y de número llevan su valor en `.value`, pero los
+ * booleanos no: llevan su nombre en `intrinsicName` ("true" / "false"). Sin
+ * esta diferencia, un `activo: boolean` se compararía contra `undefined`.
+ */
+function valorDeLiteral(tipo) {
+  if (tipo.flags & ts.TypeFlags.BooleanLiteral) {
+    return tipo.intrinsicName === "true";
+  }
+
+  return tipo.value;
+}
+
 /** Contador de propiedades comprobadas: es lo que resume el trabajo hecho. */
 let comprobadas = 0;
 
@@ -159,12 +195,15 @@ function verificar(etiqueta, valor, tipo, problemas) {
     }
 
     const literales = sinNulo.filter(
-      (t) => t.flags & ts.TypeFlags.StringLiteral || t.flags & ts.TypeFlags.NumberLiteral,
+      (t) =>
+        t.flags & ts.TypeFlags.StringLiteral ||
+        t.flags & ts.TypeFlags.NumberLiteral ||
+        t.flags & ts.TypeFlags.BooleanLiteral,
     );
 
     if (literales.length === sinNulo.length) {
-      if (!literales.some((t) => t.value === valor)) {
-        const admitidos = literales.map((t) => JSON.stringify(t.value)).join(", ");
+      if (!literales.some((t) => valorDeLiteral(t) === valor)) {
+        const admitidos = literales.map((t) => JSON.stringify(valorDeLiteral(t))).join(", ");
 
         problemas.push(`${etiqueta}: "${valor}" no es ninguno de los valores admitidos (${admitidos})`);
       }
@@ -183,6 +222,48 @@ function verificar(etiqueta, valor, tipo, problemas) {
 
     if (!encaja) {
       problemas.push(`${etiqueta}: el valor no encaja en ninguno de los tipos de la unión`);
+    }
+
+    return;
+  }
+
+  // Los literales: "publicado", 25, true.
+  //
+  // Un literal tiene su propio flag y **no** el del primitivo que widened: por
+  // eso se comprueba antes. Y `boolean` es, por dentro, la unión `true |
+  // false`, así que sin esto un `activo: boolean` se tomaría por una unión que
+  // no acepta el valor.
+  if (tipo.flags & ts.TypeFlags.StringLiteral) {
+    comprobadas += 1;
+
+    if (valor !== valorDeLiteral(tipo)) {
+      problemas.push(
+        `${etiqueta}: el tipo declara ${JSON.stringify(valorDeLiteral(tipo))} y la API mandó ${JSON.stringify(valor)}`,
+      );
+    }
+
+    return;
+  }
+
+  if (tipo.flags & ts.TypeFlags.NumberLiteral) {
+    comprobadas += 1;
+
+    if (valor !== valorDeLiteral(tipo)) {
+      problemas.push(
+        `${etiqueta}: el tipo declara ${JSON.stringify(valorDeLiteral(tipo))} y la API mandó ${JSON.stringify(valor)}`,
+      );
+    }
+
+    return;
+  }
+
+  if (tipo.flags & ts.TypeFlags.BooleanLiteral) {
+    comprobadas += 1;
+
+    if (valor !== valorDeLiteral(tipo)) {
+      problemas.push(
+        `${etiqueta}: el tipo declara ${JSON.stringify(valorDeLiteral(tipo))} y la API mandó ${JSON.stringify(valor)}`,
+      );
     }
 
     return;
@@ -238,6 +319,27 @@ function verificar(etiqueta, valor, tipo, problemas) {
     return;
   }
 
+  // Una tupla: cada elemento con su propio tipo.
+  if (checker.isTupleType(tipo)) {
+    comprobadas += 1;
+
+    if (!Array.isArray(valor)) {
+      problemas.push(`${etiqueta}: el tipo declara una tupla y la API mandó ${typeof valor}`);
+
+      return;
+    }
+
+    const argumentos = checker.getTypeArguments(tipo);
+
+    valor.forEach((item, indice) => {
+      if (indice < argumentos.length) {
+        verificar(`${etiqueta}[${indice}]`, item, argumentos[indice], problemas);
+      }
+    });
+
+    return;
+  }
+
   // Un tipo sin propiedades y sin índice no se puede comprobar: es `unknown`,
   // `any` o un tipo que no dice nada de su forma.
   const propiedades = propiedadesDe(tipo);
@@ -281,21 +383,38 @@ function verificar(etiqueta, valor, tipo, problemas) {
 
 /** Pide a la API los datos reales que hay que comparar. */
 async function datosReales() {
-  const eventos = await pedir("/api/eventos?limit=1&estado=publicado");
+  const [salud, eventos, lugares] = await Promise.all([
+    pedir("/api/health"),
+    pedir("/api/eventos?limit=1&estado=publicado"),
+    pedir("/api/lugares?limit=1"),
+  ]);
+
   const evento = eventos.items?.[0];
 
   if (evento === undefined) {
     throw new Error("La API no devolvió ningún evento: no hay nada que verificar");
   }
 
-  const [dashboard, asistentes, cierre, ranking] = await Promise.all([
+  const [detalle, promociones, dashboard, asistentes, cierre, ranking] = await Promise.all([
+    pedir(`/api/eventos/${evento._id}`),
+    pedir(`/api/eventos/${evento._id}/promociones`),
     pedir(`/api/reportes/eventos/${evento._id}/dashboard`),
     pedir(`/api/reportes/asistentes/${evento._id}?limit=2`),
     pedir("/api/reportes/cierre-contable?desde=2023-06-01&hasta=2023-07-01"),
     pedir("/api/reportes/mas-vendidos?limite=2"),
   ]);
 
-  return { evento, dashboard, asistentes, cierre, ranking };
+  return {
+    salud,
+    eventos,
+    evento: detalle,
+    lugares,
+    promociones,
+    dashboard,
+    asistentes,
+    cierre,
+    ranking,
+  };
 }
 
 let datos;
@@ -318,6 +437,22 @@ try {
 
     if (valor === undefined) {
       problemas.push(`${verificacion.etiqueta}: la respuesta no trae esa parte`);
+      continue;
+    }
+
+    // Una respuesta que es un array se compara elemento por elemento.
+    if (verificacion.array === true) {
+      if (!Array.isArray(valor)) {
+        problemas.push(`${verificacion.etiqueta}: el tipo declara un array y la API mandó ${typeof valor}`);
+        continue;
+      }
+
+      const tipoElemento = tipoDe(verificacion.tipo);
+
+      valor.forEach((item, indice) => {
+        verificar(`${verificacion.etiqueta}[${indice}]`, item, tipoElemento, problemas);
+      });
+
       continue;
     }
 
