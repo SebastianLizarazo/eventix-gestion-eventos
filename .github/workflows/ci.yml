@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Lint, tipos y tests
+    name: Lint, formato, tipos, tests y build
     runs-on: ubuntu-latest
 
     env:
@@ -58,11 +58,23 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # El formato es una puerta del CI desde H6: antes solo se comprobaba en
+      # local, así que una diferencia de Prettier llegaba al repositorio y
+      # nadie la veía hasta el siguiente `pnpm format`.
+      - name: Formato
+        run: pnpm format:check
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Tests
         run: pnpm test
+
+      # El build es la prueba de que el frontend **compila para producción**:
+      # `pnpm -r build` compila la API y hace el bundle de la web (con su
+      # typecheck estricto dentro).
+      - name: Build
+        run: pnpm build
 
   entrega:
     name: Imagen de entrega
@@ -73,9 +85,10 @@ jobs:
         uses: actions/checkout@v7
 
       # El compose de entrega es la prueba de que el "arranque en un comando"
-      # funciona de verdad: construye la imagen, levanta MongoDB y la API, espera
-      # a que la API esté sana (lo que implica que la siembra ya terminó) y
-      # comprueba que responde con datos.
+      # funciona de verdad: construye las imágenes (la API y la interfaz),
+      # levanta MongoDB, la API y la web, espera a que la API esté sana (lo que
+      # implica que la siembra ya terminó) y comprueba que todo responde con
+      # datos.
       - name: Construir y levantar el compose de entrega
         run: docker compose -f docker-compose.entrega.yml up -d --build --wait --wait-timeout 300
 
@@ -85,6 +98,36 @@ jobs:
           # 34 es el número de eventos del seed `dev`, la escala por defecto de la entrega.
           curl -fsS "http://localhost:3000/api/eventos?limit=1" | grep -qE '"total"[[:space:]]*:[[:space:]]*34[,}]'
           curl -fsS http://localhost:3000/api/openapi.json | grep -qE '"openapi"[[:space:]]*:[[:space:]]*"3\.1\.0"'
+
+      # La interfaz es la puerta de entrada de la demo: tiene que responder
+      # por una sola URL, el _fallback_ de la SPA tiene que funcionar (una
+      # recarga en `/catalogo` no puede ser un 404 de nginx) y el proxy de
+      # `/api` tiene que traer la respuesta de la API real.
+      - name: La interfaz responde por una sola URL
+        run: |
+          curl -fsS http://localhost:5173/ | grep -q 'id="raiz"'
+          curl -fsS http://localhost:5173/catalogo | grep -q 'id="raiz"'
+          curl -fsS http://localhost:5173/api/health | grep -qE '"mongo"[[:space:]]*:[[:space:]]*"up"'
+
+      # El verificador del contrato necesita TypeScript y el archivo de tipos
+      # de la interfaz, así que este job instala las dependencias. Corre
+      # contra la API **real** que acaba de levantar el compose, con el
+      # dataset `dev` sembrado: es la comprobación de que el cliente y el
+      # servidor no se desincronizan, y por eso es una puerta del CI.
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: El cliente y la API hablan el mismo idioma
+        run: pnpm verificar:contrato
 
       - name: Logs del compose
         if: failure()
