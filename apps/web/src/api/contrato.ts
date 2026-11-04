@@ -48,27 +48,77 @@ export type EsquemaJson = {
   anyOf?: EsquemaJson[];
 };
 
+/**
+ * Un parámetro de una operación, como lo publica el contrato.
+ *
+ * Hay dos grafías y las dos se declaran: la **canónica de OpenAPI** (`name`,
+ * `in`, `description`, `schema`) y la que el contrato que publica la API usa
+ * hoy, **en español** (`nombre`, `en`, `descripcion`, `esquema`). La segunda
+ * es una deuda del lado del servidor —un cliente generado solo con este
+ * documento perdería los parámetros— y la interfaz no deja de mostrar por
+ * eso: lee la que llegue.
+ *
+ * Para no repetir la decisión en cada pantalla, el nombre y el lugar se leen
+ * con `nombreDeParametro` y `lugarDeParametro`.
+ */
+export type ParametroContrato = {
+  /** Nombre del parámetro, en la grafía canónica. */
+  name?: string;
+  /** Dónde va el parámetro (`path`, `query`, `header`), en la grafía canónica. */
+  in?: string;
+  /** Qué es el parámetro, en la grafía canónica. */
+  description?: string;
+  /** El esquema del parámetro, en la grafía canónica. */
+  schema?: EsquemaJson;
+  /** Nombre del parámetro, en la grafía que usa el contrato de la API. */
+  nombre?: string;
+  /** Dónde va el parámetro, en la grafía que usa el contrato de la API. */
+  en?: string;
+  /** Qué es el parámetro, en la grafía que usa el contrato de la API. */
+  descripcion?: string;
+  /** El esquema del parámetro, en la grafía que usa el contrato de la API. */
+  esquema?: EsquemaJson;
+  /** Si el parámetro es obligatorio. */
+  required?: boolean;
+};
+
+/** El nombre del parámetro, venga en la grafía que venga. */
+export function nombreDeParametro(parametro: ParametroContrato): string {
+  return parametro.name ?? parametro.nombre ?? "";
+}
+
+/** El lugar del parámetro, venga en la grafía que venga. */
+export function lugarDeParametro(parametro: ParametroContrato): string {
+  return parametro.in ?? parametro.en ?? "";
+}
+
+/**
+ * Una respuesta del contrato: lo que la API devuelve para un estado.
+ *
+ * El `examples` es lo que liga cada respuesta de error con su código: el
+ * ejemplo trae el cuerpo del contrato de error y la `description` dice qué
+ * significa.
+ */
+export type RespuestaContrato = {
+  description?: string;
+  content?: Record<
+    string,
+    { schema?: EsquemaJson; examples?: Record<string, { value?: unknown }> }
+  >;
+};
+
 /** Una operación del contrato: lo que hace una ruta con un método. */
 export type OperacionContrato = {
   summary?: string;
   description?: string;
   operationId?: string;
   tags?: string[];
-  parameters?: {
-    name: string;
-    in: string;
-    required?: boolean;
-    description?: string;
-    schema?: EsquemaJson;
-  }[];
+  parameters?: ParametroContrato[];
   requestBody?: {
     required?: boolean;
     content?: Record<string, { schema?: EsquemaJson }>;
   };
-  responses?: Record<
-    string,
-    { description?: string; content?: Record<string, { schema?: EsquemaJson }> }
-  >;
+  responses?: Record<string, RespuestaContrato>;
 };
 
 /** El documento del contrato que publica la API. */
