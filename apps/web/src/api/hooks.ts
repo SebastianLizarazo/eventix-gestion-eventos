@@ -6,13 +6,17 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { apiClient } from "./cliente";
+import type { ContratoOpenApi } from "./contrato";
 import type {
   Asistente,
+  CambiosEvento,
   CierreContable,
   Compra,
   CompraEntrada,
   DashboardEvento,
+  EntradaEvento,
   EntradaPromocion,
+  EntradaTipoTicket,
   EstadoTicket,
   Evento,
   Lugar,
@@ -20,6 +24,7 @@ import type {
   Promocion,
   RankingVendidos,
   Salud,
+  TipoTicket,
   Usuario,
 } from "./tipos";
 
@@ -188,6 +193,113 @@ export function useEventos(filtros?: FiltrosLista): UseQueryResult<Pagina<Evento
 /** Un evento por identificador. */
 export function useEvento(id: string | null): UseQueryResult<Evento, Error> {
   return useDetalle<Evento>([...CLAVES.eventos, id], id === null ? null : `/eventos/${id}`);
+}
+
+/**
+ * El contrato OpenAPI que la API publica.
+ *
+ * La interfaz lo consume para construir los formularios con los campos que el
+ * servidor declara (spec S10): es lo que hace que el editor de la
+ * configuración no dependa de una lista de campos escrita a mano.
+ */
+export function useContrato(): UseQueryResult<ContratoOpenApi, Error> {
+  return useQuery({
+    queryKey: ["contrato"],
+    queryFn: ({ signal }) => apiClient.obtener<ContratoOpenApi>("/openapi.json", { signal }),
+  });
+}
+
+/**
+ * Alta de un evento.
+ *
+ * Al terminar bien invalida la lista de eventos: el nuevo aparece en la
+ * tabla y en el catálogo sin recargar la página.
+ */
+export function useCrearEvento() {
+  return useMutar<EntradaEvento, Evento>(
+    (entrada) => apiClient.crear<Evento>("/eventos", entrada),
+    { invalida: [CLAVES.eventos] },
+  );
+}
+
+/**
+ * Edición de un evento.
+ *
+ * Los cambios llevan la versión que se leyó (`_v`): si el documento cambió
+ * mientras el formulario estaba abierto, la API responde `409` y la
+ * pantalla lo muestra como un conflicto en vez de pisar lo que otro escribió.
+ */
+export function useEditarEvento() {
+  return useMutar<{ id: string; cambios: CambiosEvento }, Evento>(
+    ({ id, cambios }) => apiClient.editar<Evento>(`/eventos/${id}`, cambios),
+    { invalida: [CLAVES.eventos] },
+  );
+}
+
+/**
+ * Baja de un evento.
+ *
+ * El borrado es del documento del evento: la API no arrastra los tickets ya
+ * vendidos, así que la pantalla avisa antes de hacerlo.
+ */
+export function useBorrarEvento() {
+  return useMutar<string, void>((id) => apiClient.borrar<void>(`/eventos/${id}`), {
+    invalida: [CLAVES.eventos, CLAVES.tickets, CLAVES.transacciones],
+  });
+}
+
+/**
+ * Alta de un tipo de ticket en un evento.
+ *
+ * Los tipos de ticket son un sub-recurso del evento: van embebidos en él, y
+ * por eso se editan contra el evento y no contra una colección aparte.
+ */
+export function useCrearTipoTicket(eventoId: string) {
+  return useMutar<EntradaTipoTicket, TipoTicket>(
+    (entrada) => apiClient.crear<TipoTicket>(`/eventos/${eventoId}/tipos-ticket`, entrada),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
+}
+
+/**
+ * Edición de un tipo de ticket.
+ *
+ * El API no reescribe el elemento entero: solo los campos editables. Por eso
+ * el cupo ya vendido sobrevive a una edición del aforo.
+ */
+export function useEditarTipoTicket(eventoId: string) {
+  return useMutar<{ tipoId: string; cambios: EntradaTipoTicket }, TipoTicket>(
+    ({ tipoId, cambios }) =>
+      apiClient.editar<TipoTicket>(`/eventos/${eventoId}/tipos-ticket/${tipoId}`, cambios),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
+}
+
+/**
+ * Baja de un tipo de ticket.
+ *
+ * La API la rechaza con `409` cuando alguna promoción lo aplica: el mensaje
+ * dice que las quites primero, y la pantalla lo muestra tal cual.
+ */
+export function useBorrarTipoTicket(eventoId: string) {
+  return useMutar<string, void>(
+    (tipoId) => apiClient.borrar<void>(`/eventos/${eventoId}/tipos-ticket/${tipoId}`),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
+}
+
+/**
+ * Baja de una promoción de un evento.
+ *
+ * Existe porque el borrado de un tipo de ticket que una promoción aplica
+ * está bloqueado: sin esta vía, la instrucción del propio servidor («quítalas
+ * primero») no tendría a dónde ir.
+ */
+export function useBorrarPromocion(eventoId: string) {
+  return useMutar<string, void>(
+    (codigo) => apiClient.borrar<void>(`/eventos/${eventoId}/promociones/${codigo}`),
+    { invalida: [[...CLAVES.eventos, eventoId]] },
+  );
 }
 
 /**
