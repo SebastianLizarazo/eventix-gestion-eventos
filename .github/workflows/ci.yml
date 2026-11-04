@@ -84,6 +84,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # La base no tiene autenticación (documento 05 §8.7): los puertos de la
+      # entrega se publican en `127.0.0.1` y no en `0.0.0.0`. Esta puerta lo
+      # afirma: si alguien cambia el bind, el CI lo dice en vez de dejarlo pasar.
+      - name: Los puertos se publican solo en 127.0.0.1
+        run: |
+          Publicados=$(docker compose -f docker-compose.entrega.yml config | grep 'host_ip:' | wc -l)
+          Locales=$(docker compose -f docker-compose.entrega.yml config | grep 'host_ip: 127.0.0.1' | wc -l)
+          echo "puertos publicados: $Publicados · en 127.0.0.1: $Locales"
+          test "$Publicados" -eq "$Locales"
+
       # El compose de entrega es la prueba de que el "arranque en un comando"
       # funciona de verdad: construye las imágenes (la API y la interfaz),
       # levanta MongoDB, la API y la web, espera a que la API esté sana (lo que

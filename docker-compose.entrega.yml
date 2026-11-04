@@ -119,7 +119,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_WEB_PORT:-5173}:80"
+      - "${EVENTIX_BIND:-127.0.0.1}:${EVENTIX_WEB_PORT:-5173}:8080"
     healthcheck:
       # El healthcheck va **a través del proxy**: si responde, están vivos el
       # nginx, la API y MongoDB, que es exactamente la cadena que la demo
@@ -130,7 +130,7 @@ services:
         - -q
         - -O
         - /dev/null
-        - http://127.0.0.1/api/health
+        - http://127.0.0.1:8080/api/health
       interval: 10s
       timeout: 5s
       retries: 12

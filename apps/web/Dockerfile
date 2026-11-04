@@ -55,12 +55,19 @@ RUN pnpm --filter @eventix/web build
 FROM nginx:alpine AS entrega
 
 # La configuración de nginx sustituye la que trae la imagen: es la que hace
-# el *fallback* de la SPA y el proxy de `/api`.
+# el _fallback_ de la SPA y el proxy de `/api`.
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 
 COPY --from=compilacion /app/apps/web/dist /usr/share/nginx/html
 
-EXPOSE 80
+# nginx corre **sin privilegios**, como la API (que usa `USER node`): el
+# proceso maestro necesita escribir el pid, los temporales y los logs, y con
+# el puerto 8080 (nada por debajo de 1024) no necesita ser root para abrirlo.
+RUN chown -R nginx:nginx /var/cache/nginx /run /var/log/nginx
+
+USER nginx
+
+EXPOSE 8080
 
 # Sin política de reinicio, como la API: si la configuración de nginx está
 # rota, el contenedor tiene que quedar caído y visible (con el error en sus

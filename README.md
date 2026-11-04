@@ -29,8 +29,10 @@ curl http://localhost:5173/api/health
 La **interfaz web queda en http://localhost:5173** (esa es la puerta de entrada:
 habla con la API por su proxy, así que el navegador solo ve un mismo origen), la
 API en **http://localhost:3000** y MongoDB en `localhost:27018` (por si quieres
-mirar la base). Para bajar todo: `docker compose -f docker-compose.entrega.yml
-down` (o `down -v` para borrar también los datos).
+mirar la base: la conexión directa es `mongodb://localhost:27018/eventix?directConnection=true`,
+porque el replica set se anuncia con el nombre del contenedor). Para bajar todo:
+`docker compose -f docker-compose.entrega.yml down` (o `down -v` para borrar
+también los datos).
 
 El contenedor de la API **no tiene política de reinicio**, y el de la web tampoco:
 si la preparación de la base o la configuración de nginx fallan, quedan **caídos

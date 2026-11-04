@@ -192,8 +192,10 @@ quedarse vieja sin que nadie se entere.
 
 La API no tiene autenticación ni autorización (documento 05 §8.1). La interfaz
 **no simula un login que no existe**: es una herramienta de demostración local.
-La mitigación es la de siempre — los puertos se publican en `127.0.0.1`, nunca en
-`0.0.0.0` — porque la base no tiene autenticación (documento 05 §8.7).
+La mitigación es la de siempre — **en la entrega** los puertos se publican en
+`127.0.0.1`, nunca en `0.0.0.0` — porque la base no tiene autenticación
+(documento 05 §8.7). (El compose de **desarrollo** publica su MongoDB en
+`0.0.0.0:27017`: es una decisión previa de este proyecto, que no se tocó.)
 
 ### 5.2 El dataset sembrado no permite comprar
 
