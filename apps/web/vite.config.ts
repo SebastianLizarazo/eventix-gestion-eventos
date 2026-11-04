@@ -37,5 +37,16 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     css: false,
     restoreMocks: true,
+    // Un entorno por archivo es caro: con veintitrés archivos de prueba, el
+    // jsdom se creaba veintitrés veces y las pruebas que esperan una respuesta
+    // (los `waitFor`) llegaban a su tiempo límite con la máquina saturada.
+    // `vmThreads` crea un entorno por trabajador y lo reutiliza, y cada
+    // archivo sigue teniendo su propio contexto.
+    pool: "vmThreads",
+    // El límite por defecto (5 s) es corto para una prueba que simula que
+    // alguien escribe en un formulario con Testing Library: con la máquina
+    // ocupada —y el CI tiene cuatro núcleos— una prueba válida lo rebasaba y
+    // quedaba en rojo sin que nada estuviera roto.
+    testTimeout: 15000,
   },
 });
