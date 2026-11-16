@@ -93,9 +93,12 @@ Requiere **solo Docker**. No hace falta Node, ni pnpm, ni una MongoDB local.
 docker compose -f docker-compose.entrega.yml up --build
 ```
 
-Eso levanta tres cosas: MongoDB 7.x en replica set, el servicio que inicializa el
-replica set, y la API. La API queda en **http://localhost:3000** y **el dataset
-`dev` ya está sembrado** cuando responde:
+Eso levanta cuatro cosas: MongoDB 7.x en replica set, el servicio que inicializa el
+replica set, la API y la interfaz web (nginx, que sirve la SPA y hace proxy de
+`/api`). La API queda en **http://localhost:3000**, la interfaz en
+**http://localhost:5173** —la puerta de entrada de la demo, documentada en el
+[documento 06](./06-interfaz-web.md)— y **el dataset `dev` ya está sembrado** cuando
+responde:
 
 ```bash
 curl http://localhost:3000/api/health
@@ -103,15 +106,20 @@ curl http://localhost:3000/api/health
 
 curl "http://localhost:3000/api/eventos?limit=1"
 # {"items":[…],"total":34,"skip":0,"limit":1}
+
+curl http://localhost:5173/api/health
+# la misma respuesta, ahora a través del proxy de la interfaz
 ```
 
 El compose publica además MongoDB en `localhost:27018`, para poder mirar la base
-con `mongosh` sin entrar al contenedor.
+con `mongosh` sin entrar al contenedor (con `?directConnection=true`: el replica
+set se anuncia con el nombre del contenedor).
 
 | Variable | Por defecto | Qué hace |
 | --- | --- | --- |
 | `EVENTIX_BIND` | `127.0.0.1` | Interfaz de publicación; `0.0.0.0` la expone a la red |
 | `EVENTIX_PORT` | `3000` | Puerto publicado de la API |
+| `EVENTIX_WEB_PORT` | `5173` | Puerto publicado de la interfaz web |
 | `EVENTIX_MONGO_PORT` | `27018` | Puerto publicado de MongoDB |
 | `EVENTIX_SEED` | `auto` | `auto` siembra solo si la base está vacía; `always` reemplaza; `never` no siembra |
 | `EVENTIX_SEED_SCALE` | `dev` | `dev` o `full` (el dataset completo: ~3 min y ~405 MB; el tiempo depende del hardware) |
@@ -306,13 +314,17 @@ y el que miden los scripts de NFR. Pesa ~405 MB.
 ## 6. Evidencia continua
 
 El CI corre en cada push y en cada PR a `main`: codificación UTF-8, instalación con
-lockfile congelado, MongoDB 7.x en replica set, lint, typecheck y la suite completa
-(**496 tests en 44 archivos**, ~32 s en el runner).
+lockfile congelado, MongoDB 7.x en replica set, lint, formato, typecheck, la suite
+completa (**496 tests de la API en 44 archivos** y **155 de la web en 23**, ~32 s
+en el runner) y el build de los dos paquetes.
 
-Además hay un job de **entrega**: construye la imagen, levanta el compose de
-entrega completo y comprueba que la API responde con datos sembrados. Ese job es
-lo que convierte "el arranque en un comando funciona" en una afirmación verificada
-en cada commit, y no en una instrucción que alguien tiene que seguir a ciegas.
+Además hay un job de **entrega**: construye las imágenes (la API y la interfaz),
+levanta el compose de entrega completo, comprueba que la API responde con datos
+sembrados, que la interfaz responde por su URL (con el _fallback_ de la SPA y el
+proxy de `/api`) y que el **verificador del contrato** cuadra contra esa API real.
+Ese job es lo que convierte "el arranque en un comando funciona" en una afirmación
+verificada en cada commit, y no en una instrucción que alguien tiene que seguir a
+ciegas.
 
 ---
 
@@ -325,7 +337,7 @@ en cada commit, y no en una instrucción que alguien tiene que seguir a ciegas.
 | La compra no deja sobreventa | Test de concurrencia en el servicio (8 contra 2) **y** prueba de carga por HTTP (100 contra 50) |
 | Una compra fallida no deja nada | Test de rollback: cero tickets y cero transacciones huérfanas |
 | Reintentar el mismo cargo no duplica | Test de idempotencia por `pasarela` + `referencia_pasarela` |
-| La entrega arranca en un comando | Job de CI que construye la imagen, levanta el compose y consulta la API |
+| La entrega arranca en un comando | Job de CI que construye las imágenes, levanta el compose y consulta la API y la interfaz |
 | El seed es reproducible | Mismo checksum entre dos corridas con la misma semilla |
 
 ---
@@ -428,11 +440,12 @@ validador no declara"* pasara a decir "sí", y la prueba cruda perdería su valo
   escribir la base. `EVENTIX_BIND=0.0.0.0` abre la publicación, y esa es una
   decisión consciente, no un default.
 - **Las imágenes se referencian por etiqueta mutable** (`node:22-alpine`,
-  `mongo:7`), no por digest: los bytes que corren pueden cambiar sin que
-  cambie el repositorio. Fijar digests es lo correcto para un despliegue, y es
-  una decisión que este prototipo no toma.
-- **El contenedor de la API no tiene política de reinicio.** Si la preparación de
-  la base falla, el contenedor queda **caído y visible**, con el error en sus
+  `mongo:7`, `nginx:alpine`), no por digest: los bytes que corren pueden cambiar
+  sin que cambie el repositorio. Fijar digests es lo correcto para un despliegue,
+  y es una decisión que este prototipo no toma.
+- **El contenedor de la API no tiene política de reinicio** (ni el de la interfaz,
+  que sirve la SPA). Si la preparación de la base falla —o la configuración de
+  nginx está rota—, el contenedor queda **caído y visible**, con el error en sus
   logs. Con una política de reinicio, un error de configuración se convierte en
   un bucle infinito que *parece* que la API está arrancada: es el peor modo de
   fallo posible, porque el operador espera a algo que no responde.
