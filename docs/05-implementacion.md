@@ -450,6 +450,99 @@ validador no declara"* pasara a decir "sí", y la prueba cruda perdería su valo
   un bucle infinito que *parece* que la API está arrancada: es el peor modo de
   fallo posible, porque el operador espera a algo que no responde.
 
+### 8.8 La API no reconecta sola el pool de MongoDB
+
+Si MongoDB se cae y vuelve, la API **no se recupera sola**: `GET /api/health`
+sigue respondiendo `503 degraded` y hay que **reiniciar el proceso**.
+
+**Lo que se midió** (smoke test sobre el compose de desarrollo):
+
+| Comprobación | Resultado | Qué descarta |
+| --- | --- | --- |
+| `db.hello()` desde `mongosh` | `primary=true`, `setName=rs0`, `maxWireVersion=21` | MongoDB está sano |
+| Puerto 27017 alcanzable desde el host | sí | No es un problema de red |
+| **Cliente nuevo** con la misma URI → `ping` | correcto | La URI, el `replicaSet=rs0` y el nombre de la base están bien |
+| El cliente que ya tenía abierto la API | `503` durante más de 3 minutos | El estado del `MongoClient` |
+| Duración de cada petición | ~5,015 s | Es el `serverSelectionTimeoutMS: 5_000` de `src/db/mongo.ts` agotado: no es un ping lento, es una **selección de servidor** que no encuentra a quién preguntar |
+
+**Por qué**: cuando el nodo cae, el driver marca el server como desconocido y lo
+retira de la topología; en este caso la topología quedó sin servidores
+seleccionables y no se recuperó. El **arranque**, en cambio, sí falla fuerte y
+temprano (`await connectMongo()` antes de `app.listen()`): un MongoDB ausente al
+arrancar es un fallo ruidoso, no un arranque silencioso. El hueco está
+**solo** en la recuperación en caliente.
+
+**Qué costaría cerrarlo**: una política de reconexión explícita del driver, o un
+watchdog que reinicie el proceso cuando el health reporta `degraded`. En un
+despliegue con orquestador, un `livenessProbe` sobre este mismo `/api/health`
+resuelve el caso sin tocar el código: el reinicio sería automático. **Este
+prototipo no tiene orquestador**, y por eso la recuperación es manual.
+
+### 8.9 Con el dataset `dev` la compra no se puede ejecutar
+
+`POST /api/compras` contra **cualquier** evento del seed `dev` responde **409
+`conflicto`** con el motivo `venta_cerrada` en `detalles[0].codigo`.
+
+**Por qué**: el seed es una foto del negocio en **mitad de 2023**
+(`INSTANTE_DATOS = 2023-07-01`), y las ventanas de venta de sus tipos de ticket
+están en 2023. La compra, en cambio, valida la ventana contra el **reloj real**
+(`src/services/compra.ts:83`, `const ahora = new Date()`). Entre la fecha del
+dataset y la de la compra hay años de distancia, así que toda venta está
+"cerrada".
+
+**No es un defecto del flujo de compra**: las pruebas que lo cubren
+(concurrencia, rollback, idempotencia y carga) construyen sus propios datos con
+la ventana vigente y pasan. Es una consecuencia de que el dataset simulado
+represente el pasado.
+
+**Qué hacer para probarlo a mano**: crear un evento con `estado: "publicado"` y
+un tipo de ticket cuya `restricciones.venta_inicio` / `venta_fin` cubran el
+momento de la compra. El ejemplo completo está en el
+[README](../README.md#probar-el-flujo-de-compra-a-mano).
+
+### 8.10 El log de acceso confunde una dependencia caída con un error interno
+
+El log de acceso clasifica **todo** `status >= 500` como error interno
+(`src/http/middleware/logging.ts`):
+
+```typescript
+if (res.statusCode >= 500) {
+  logger.error(datos, "Error interno");
+}
+```
+
+Un **`503` por MongoDB caído** —que es exactamente lo que devuelve
+`/api/health` cuando la base no está— queda registrado como `level 50` con el
+mensaje `"Error interno"`. El código de la API **funcionó bien**: lo que se cayó
+fue su dependencia, y el healthcheck reportó el estado real de forma correcta.
+El problema es de **clasificación**: quien filtre los logs por `"Error interno"`
+va a pensar que la aplicación está rota cuando lo que está caído es la base.
+
+**Qué costaría cerrarlo**: un escalón intermedio entre `warn` y `error` —por
+ejemplo `503` → `warn` ("dependencia no disponible") y `5xx` → `error`—, más un
+mensaje que distinga el origen. Es un cambio de tres líneas. **No se hizo**
+porque el comportamiento actual no es incorrecto: solo es menos preciso de lo
+que podría ser.
+
+### 8.11 Dos observaciones menores del smoke test
+
+- **`pnpm seed --scale=dev --reset` no revierte la auditoría.** El README dice que
+  las compras de la demo se revierten con ese comando, y es cierto para las cinco
+  colecciones que el seed siembra, pero **no** para `auditoria_eventos`: el rastro
+  es append-only y su único escritor es la compra, así que el seed ni lo toca.
+  Los rastros quedan hasta que pasa el TTL de 365 días del índice
+  `auditoria_ocurrido_en_ttl`.
+- **`GET /api/eventos/catalogo` no lo consume ningún cliente.** El endpoint existe,
+  está testeado y está publicado en el contrato OpenAPI, y filtra
+  `{estado: "publicado", visibilidad: "publico"}` —**10** eventos con el dataset
+  `dev`—, que es el catálogo público por definición. La pantalla **Catálogo** de la
+  web, en cambio, usa el listado filtrable (`GET /api/eventos?estado=publicado`),
+  que devuelve **14**: los 4 eventos publicados con `visibilidad: "privado"` también
+  aparecen, con su distintivo de visibilidad en la tarjeta. No es un error —la
+  pantalla es un explorador con filtros, y su filtro por defecto es "publicado"—
+  pero conviene saber que la API expone un endpoint más específico que la web no
+  está usando.
+
 ---
 
 ## 9. Lo que este documento no promete
@@ -461,3 +554,7 @@ validador no declara"* pasara a decir "sí", y la prueba cruda perdería su valo
 - No promete autenticación: el prototipo no la tiene y su coste está escrito (8.1).
 - No promete un despliegue: el avance evalúa el ítem 5, y el despliegue no es un
   ítem evaluado (8.6).
+- No promete que la API se recupere sola de una caída de MongoDB: hay que
+  reiniciarla (8.8).
+- No promete que el dataset `dev` permita comprar: su fecha es de 2023 y la
+  ventana de venta se valida contra el reloj real (8.9).

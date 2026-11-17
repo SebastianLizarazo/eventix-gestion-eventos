@@ -80,13 +80,25 @@ Detener MongoDB: `pnpm mongo:down` (o `pnpm mongo:down --volumes` para borrar da
 
 ## Verificación
 
+Las puertas automáticas —son las mismas que corre el CI en cada push:
+
 ```bash
-pnpm test                          # suite Vitest
+pnpm test                          # suite Vitest (API y web)
 pnpm lint                          # ESLint
 pnpm typecheck                     # tsc --noEmit
 pnpm format:check                  # Prettier
 pnpm check:utf8                    # guardián de codificación
-pnpm verificar:contrato            # el cliente y la API hablan el mismo idioma
+pnpm build                         # compila los dos paquetes
+```
+
+`pnpm test` corre **651 pruebas** en 67 archivos (496 de la API y 155 de la web).
+Las de la API son de integración contra MongoDB real: cada archivo de prueba usa
+una **base propia** (y la borra al terminar), así que no se pisen entre sí.
+
+### El cliente y la API hablan el mismo idioma
+
+```bash
+pnpm verificar:contrato            # la respuesta real contra los tipos del cliente
 ```
 
 `pnpm verificar:contrato` **contrasta la respuesta real de la API contra los
@@ -101,6 +113,91 @@ porque la auditoría llega vacía: el seed no escribe rastro y el rastro solo lo
 escribe una compra). Es la comprobación que sostiene que el cliente y el
 servidor no se van a desincronizar; necesita la API arriba (`pnpm dev`) y
 **corre también en el CI**, contra la API real del compose de entrega.
+
+### Medir los NFR
+
+Los tres NFR que el avance evalúa se miden con scripts reproducibles, cada uno
+con su dataset y su método. **Requieren el dataset `full`** (340 eventos y
+520.000 tickets; ~3 min y ~405 MB al sembrar):
+
+```bash
+pnpm seed --scale=full --reset     # el dataset que miden
+pnpm test:perf                     # NFR-01 · p95 de las operaciones CRUD (< 200 ms)
+pnpm test:esquema                  # NFR-04 · campo nuevo sin migración ni downtime
+pnpm test:carga                    # NFR-05 · no doble venta bajo carga
+pnpm perf:reporting                # las cuatro consultas del reporting (< 2 s)
+```
+
+Cada script **deja el dataset exactamente como estaba** (escribe solo sobre
+documentos que él mismo crea, con un identificador de corrida, y compara los
+conteos de las seis colecciones antes y después) y **falla con código de salida
+1** si su umbral no se cumple: no puede dar un falso verde. Para volver al
+dataset `dev`: `pnpm seed --scale=dev --reset`.
+
+Los resultados medidos, con su método, están en
+[`docs/05-implementacion.md`](./docs/05-implementacion.md#5-resultados-de-los-nfr).
+
+### Probar el flujo de compra a mano
+
+> **El dataset `dev` no permite comprar**: es una foto de mitad de 2023 y la
+> ventana de venta se valida contra el reloj real, así que cualquier compra
+> contra un evento del seed responde `409` con el motivo `venta_cerrada`. El
+> detalle está en
+> [`docs/05-implementacion.md`](./docs/05-implementacion.md#89-con-el-dataset-dev-la-compra-no-se-puede-ejecutar).
+
+Para probarlo hay que crear un evento cuya ventana de venta cubra el momento de
+la compra (con la API arriba en `http://localhost:3000`):
+
+```bash
+curl -s -X POST http://localhost:3000/api/eventos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Evento de prueba",
+    "tipo_evento": "corporativo",
+    "estado": "publicado",
+    "fecha_inicio": "2027-01-10T14:00:00.000Z",
+    "fecha_fin": "2027-01-10T18:00:00.000Z",
+    "organizador_id": "<id de un usuario>",
+    "lugar_id": "<id de un lugar>",
+    "tipos_ticket": [{
+      "_id": "<24 hexadecimales>",
+      "nombre": "General",
+      "precio_cop": 50000,
+      "aforo_total": 10,
+      "restricciones": {
+        "max_por_compra": 5,
+        "venta_inicio": "2026-01-01T00:00:00.000Z",
+        "venta_fin": "2027-01-01T00:00:00.000Z"
+      }
+    }]
+  }'
+```
+
+Y después comprar:
+
+```bash
+curl -s -i -X POST http://localhost:3000/api/compras \
+  -H "Content-Type: application/json" \
+  -d '{
+    "evento_id": "<id del evento>",
+    "tipo_ticket_id": "<id del tipo de ticket>",
+    "usuario_id": "<id del comprador>",
+    "asistente_id": "<id del asistente>",
+    "metodo_pago": "tarjeta_credito",
+    "pasarela": "demo",
+    "referencia_pasarela": "DEMO-001"
+  }'
+```
+
+La respuesta es `201` con el `Location` del ticket emitido. **Repitiendo el mismo
+`POST` con la misma `referencia_pasarela`**, la respuesta es `200` con
+`"idempotente": true`: no cobra dos veces ni ocupa cupo dos veces. Y si el
+aforo del tipo de ticket se agota, la respuesta es `409` con el motivo
+`aforo_agotado` en `error.detalles[0].codigo`.
+
+> La compra escribe datos reales (ticket, transacción, aforo y rastro de
+> auditoría). Para volver al estado original: `pnpm seed --scale=dev --reset`
+> —que no revierte la auditoría, por ser append-only—.
 
 ## Estructura
 
@@ -140,6 +237,8 @@ docker-compose.entrega.yml    MongoDB + API + interfaz web en contenedores, arra
 - El **seed es determinista**: la misma semilla produce el mismo dataset (verificado
   por checksum). Por eso sembrar dos veces a la vez choca con el índice único de
   `_id` — es un error de operación, no un bug.
-- **Lo que este prototipo no tiene** (autenticación, entre otras cosas) está
-  escrito en las [divergencias y limitaciones conocidas](./docs/05-implementacion.md#8-divergencias-y-limitaciones-conocidas) del
+- **Lo que este prototipo no tiene** (autenticación, entre otras cosas) y **lo que
+  el smoke test encontró sin documentar** (la API no reconecta sola el pool de
+  MongoDB, el dataset `dev` no permite comprar y el log confunde una dependencia
+  caída con un error interno) está escrito en las [divergencias y limitaciones conocidas](./docs/05-implementacion.md#8-divergencias-y-limitaciones-conocidas) del
   entregable, con su coste.
