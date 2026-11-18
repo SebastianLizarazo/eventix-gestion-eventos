@@ -132,6 +132,9 @@
 | T9.1 | S12 | H9 · Entrega | `docs/05-implementacion.md` con implementación, runbook y resultados de NFR | inline | none | **hecho** | `f4140cd`, `264211e`, `52e181c` |
 | T9.2 | S12 | H9 · Entrega | README raíz + fila `05` en `docs/README.md` | inline | none | **hecho** | `3cdca5d`, `52e181c` |
 | T9.3 | S12 | H9 · Entrega | Dockerfile y compose de entrega; arranque en un comando | inline | item 5 | **hecho** | `2622c9f`, `f6755b0` |
+| T10.1 | S10 | H10 · Deuda asumida | `hasta` de calendario inclusivo: que el fin de un día incluya el día completo (cierre contable, transacciones y auditoría) | inline | none | **pendiente** | — |
+| T10.2 | S7 | H10 · Deuda asumida | Borrado en cascada de `DELETE /api/eventos/{id}`: que borre sus tickets y transacciones, con la decisión de negocio sobre el dinero ya cobrado | inline | none | **pendiente** | — |
+| T10.3 | S9 | H10 · Deuda asumida | `cantidad` en `POST /api/compras`: compra de varios tickets en una petición, con la reserva de cupo ajustada | inline | none | **pendiente** | — |
 
 ---
 

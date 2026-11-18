@@ -543,6 +543,77 @@ que podría ser.
   pero conviene saber que la API expone un endpoint más específico que la web no
   está usando.
 
+### 8.12 El filtro "hasta" con fecha de calendario excluye el propio día
+
+Los tres reportes con rango (cierre contable, transacciones y auditoría) leen `desde`
+y `hasta` con `leerFecha` (`src/http/recursos/comun.ts:43`), que convierte un valor
+de **solo calendario** en el **inicio** de ese día: `"2026-11-18"` →
+`2026-11-18T00:00:00Z`. El filtro del repositorio compara con `$lte`
+(`src/db/repos/transacciones.ts:100-102`):
+
+```typescript
+async porFechaConfirmacion(desde: Date, hasta: Date, opciones?: OpcionesListado) {
+  return base.listar({ confirmada_en: { $gte: desde, $lte: hasta } }, opciones);
+}
+```
+
+Un rango del mismo día queda entonces con la ventana `[18/11 00:00, 18/11 00:00]`: de
+ancho cero. **Comprobado contra la API en ejecución** el 18/11/2026, con tres
+transacciones confirmadas ese mismo día a las 14:56 UTC:
+
+| Consulta                          | Días devueltos | Transacciones | Neto        |
+| --------------------------------- | -------------- | ------------- | ----------- |
+| `desde=2026-11-18&hasta=2026-11-18` | 0            | 0             | COP 0       |
+| `desde=2026-11-18&hasta=2026-11-19` | 1            | 3             | COP 285.000 |
+
+**Qué costaría cerrarlo**: tratar un `hasta` sin componente horario como el **final**
+de ese día (`23:59:59.999Z`), o comparar con `$lt` contra el inicio del día
+siguiente. Es un cambio de una línea en `leerFecha` más el test que lo fija. **No se
+hizo** porque la semántica actual no es incorrecta sino incompleta: el parámetro se
+comporta como un **instante**, no como un día, y quien lo usa con un calendario tiene
+que saber que el día se cierra a medianoche. Queda anotado como uso obligatorio en la
+[guía de sustentación](../GUIA-SUSTENTACION.md) y como deuda pendiente.
+
+### 8.13 `DELETE /api/eventos/{id}` no hace cascada
+
+Borrar un evento borra el documento del evento y **nada más**: los tickets emitidos,
+las transacciones y los rastros de auditoría que lo referencian quedan en sus
+colecciones. **Comprobado**: se creó un evento, se compraron tres tickets y, al
+borrar el evento, quedaron 3 tickets y 3 transacciones sin evento al que pertenecer.
+
+El contrato expone `DELETE /api/tickets/{id}` y `DELETE /api/transacciones/{id}`, así
+que los tickets y las transacciones **sí** se pueden borrar uno por uno; la auditoría
+es append-only y responde 405 a cualquier escritura.
+
+**Qué costaría cerrarlo**: una única operación de borrado en cascada (o un hook) que
+elimine los tickets y las transacciones del evento. **No se hizo** porque el borrado
+en cascada tiene una consecuencia que el proyecto no ha decidido: **qué pasa con el
+dinero ya cobrado**. Un ticket vendido es una transacción confirmada, y borrarla
+junto con el evento puede ser lo correcto (el evento ya no existe) o puede ser una
+pérdida de trazabilidad contable. Esa decisión es de negocio y no del código, así que
+el comportamiento actual —borrar solo lo que se pidió— es el conservador y el que no
+hace desaparecer información por sorpresa.
+
+### 8.14 La compra no tiene cantidad: un ticket por petición
+
+`POST /api/compras` compra **un** ticket. El esquema de entrada
+(`src/domain/schemas/compra.ts`) no tiene campo `cantidad` y la interfaz tampoco lo
+ofrece: comprar dos tickets del mismo tipo son **dos** peticiones, con dos
+referencias y dos cargos.
+
+Es una decisión del modelo y no un descuido: la reserva de cupo
+(`findOneAndUpdate` con `aforo_vendido < aforo_total`) reserva **un** cupo, y el 2×1
+se modela como una promoción que exige un ticket previo del mismo tipo, no como
+"comprar dos". Ambas cosas necesitan conocer el tipo de ticket y el comprador, no un
+multiplicador.
+
+**Qué costaría cerrarlo**: agregar `cantidad` al contrato de compra y hacer que la
+reserva de cupo verifique que hay `cantidad` cupos libres, con la transacción entera
+como atomicidad. **No se hizo** porque es una extensión del contrato (y del
+documento 04), no un defecto: la compra de un ticket por petición es un flujo
+completo y coherente. Queda anotado en la [guía de sustentación](../GUIA-SUSTENTACION.md)
+como limitación conocida.
+
 ---
 
 ## 9. Lo que este documento no promete
@@ -558,3 +629,8 @@ que podría ser.
   reiniciarla (8.8).
 - No promete que el dataset `dev` permita comprar: su fecha es de 2023 y la
   ventana de venta se valida contra el reloj real (8.9).
+- No promete que el filtro por rango de fechas incluya el día completo: un `hasta`
+  de calendario es el **inicio** de ese día, y un rango del mismo día sale vacío
+  (8.12).
+- No promete que borrar un evento borre sus tickets y sus transacciones: el borrado
+  no es en cascada (8.13).
