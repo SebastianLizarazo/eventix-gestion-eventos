@@ -12,6 +12,10 @@ El roadmap de implementación, con el estado real de cada tarea, vive en
 [`odd/tasks/eventix-implementacion.md`](./odd/tasks/eventix-implementacion.md), y el de
 la interfaz en [`odd/tasks/eventix-frontend.md`](./odd/tasks/eventix-frontend.md).
 
+**Para la sustentación:** el recorrido de la prueba funcional completa de la interfaz
+web —paso a paso, con el texto literal de cada botón y el valor exacto de cada campo—
+está en [`GUIA-SUSTENTACION.md`](./GUIA-SUSTENTACION.md).
+
 ## Arranque con Docker — un comando
 
 La vía más corta: **solo necesita Docker**. Levanta MongoDB, aplica el esquema,
@@ -221,6 +225,7 @@ apps/web/          interfaz web (React + Vite + TypeScript estricto + Tailwind)
 scripts/           scripts de operación (levantar/apagar MongoDB, verificar el contrato)
 docs/              entregables de los ítems 1–5 y de la parte 06 (interfaz web)
 odd/tasks/         roadmaps de implementación (documentos vivos)
+GUIA-SUSTENTACION.md   recorrido paso a paso de la prueba funcional de la interfaz web
 Dockerfile          imagen de entrega de la API (compilación + solo dependencias de producción)
 docker-compose.yml            MongoDB 7.x en replica set de un solo nodo (desarrollo)
 docker-compose.entrega.yml    MongoDB + API + interfaz web en contenedores, arranque en un comando
